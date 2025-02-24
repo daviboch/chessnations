@@ -1,4 +1,4 @@
-# board_moves.py
+# moves.py
 
 from piece_movement.piece_movement_common import (
     EMPTY, BOARD_SIZE,
@@ -13,19 +13,258 @@ from piece_movement.piece_movement_common import (
     in_bounds, get_all_pseudo_moves_for_square
 )
 
-from .board_castling import (
-    white_castle_short_inplace_classical,
-    white_castle_long_inplace_classical,
-    black_castle_short_inplace_classical,
-    black_castle_long_inplace_classical,
-    white_castle_short_inplace_nativi,
-    white_castle_long_inplace_nativi,
-    black_castle_short_inplace_nativi,
-    black_castle_long_inplace_nativi
-)
-from .board_state import is_in_check
-#from .board_logic import check_end_of_game
+# -------------------------------------------------------
+# Funzioni "board_castling.py" incorporate qui
+# -------------------------------------------------------
+def white_castle_short_inplace_classical(board_obj):
+    if board_obj.white_king_moved or board_obj.white_right_rook_moved:
+        return False
+    if is_in_check(board_obj, True):
+        return False
+    if (board_obj.board[7][5] != EMPTY or board_obj.board[7][6] != EMPTY):
+        return False
+    if board_obj.board[7][7] != WHITE_ROOK:
+        return False
+    old_king = board_obj.board[7][4]
+    old_rook = board_obj.board[7][7]
+    board_obj.board[7][4] = EMPTY
+    board_obj.board[7][7] = EMPTY
+    board_obj.board[7][6] = old_king
+    board_obj.board[7][5] = old_rook
+    if is_in_check(board_obj, True):
+        board_obj.board[7][4] = old_king
+        board_obj.board[7][7] = old_rook
+        board_obj.board[7][6] = EMPTY
+        board_obj.board[7][5] = EMPTY
+        return False
+    board_obj.white_king_moved = True
+    board_obj.white_right_rook_moved = True
+    return True
 
+def white_castle_long_inplace_classical(board_obj):
+    if board_obj.white_king_moved or board_obj.white_left_rook_moved:
+        return False
+    if is_in_check(board_obj, True):
+        return False
+    if (board_obj.board[7][1] != EMPTY or
+        board_obj.board[7][2] != EMPTY or
+        board_obj.board[7][3] != EMPTY):
+        return False
+    if board_obj.board[7][0] != WHITE_ROOK:
+        return False
+    old_king = board_obj.board[7][4]
+    old_rook = board_obj.board[7][0]
+    board_obj.board[7][4] = EMPTY
+    board_obj.board[7][0] = EMPTY
+    board_obj.board[7][2] = old_king
+    board_obj.board[7][3] = old_rook
+    if is_in_check(board_obj, True):
+        board_obj.board[7][4] = old_king
+        board_obj.board[7][0] = old_rook
+        board_obj.board[7][2] = EMPTY
+        board_obj.board[7][3] = EMPTY
+        return False
+    board_obj.white_king_moved = True
+    board_obj.white_left_rook_moved = True
+    return True
+
+def black_castle_short_inplace_classical(board_obj):
+    if board_obj.black_king_moved or board_obj.black_right_rook_moved:
+        return False
+    if is_in_check(board_obj, False):
+        return False
+    if (board_obj.board[0][5] != EMPTY or board_obj.board[0][6] != EMPTY):
+        return False
+    if board_obj.board[0][7] != BLACK_ROOK:
+        return False
+    old_king = board_obj.board[0][4]
+    old_rook = board_obj.board[0][7]
+    board_obj.board[0][4] = EMPTY
+    board_obj.board[0][7] = EMPTY
+    board_obj.board[0][6] = old_king
+    board_obj.board[0][5] = old_rook
+    if is_in_check(board_obj, False):
+        board_obj.board[0][4] = old_king
+        board_obj.board[0][7] = old_rook
+        board_obj.board[0][6] = EMPTY
+        board_obj.board[0][5] = EMPTY
+        return False
+    board_obj.black_king_moved = True
+    board_obj.black_right_rook_moved = True
+    return True
+
+def black_castle_long_inplace_classical(board_obj):
+    if board_obj.black_king_moved or board_obj.black_left_rook_moved:
+        return False
+    if is_in_check(board_obj, False):
+        return False
+    if (board_obj.board[0][1] != EMPTY or
+        board_obj.board[0][2] != EMPTY or
+        board_obj.board[0][3] != EMPTY):
+        return False
+    if board_obj.board[0][0] != BLACK_ROOK:
+        return False
+    old_king = board_obj.board[0][4]
+    old_rook = board_obj.board[0][0]
+    board_obj.board[0][4] = EMPTY
+    board_obj.board[0][0] = EMPTY
+    board_obj.board[0][2] = old_king
+    board_obj.board[0][3] = old_rook
+    if is_in_check(board_obj, False):
+        board_obj.board[0][4] = old_king
+        board_obj.board[0][0] = old_rook
+        board_obj.board[0][2] = EMPTY
+        board_obj.board[0][3] = EMPTY
+        return False
+    board_obj.black_king_moved = True
+    board_obj.black_left_rook_moved = True
+    return True
+
+def white_castle_short_inplace_nativi(board_obj):
+    if board_obj.white_king_moved or board_obj.white_right_rook_moved:
+        return False
+    if is_in_check(board_obj, True):
+        return False
+    if (board_obj.board[7][5] != EMPTY or board_obj.board[7][6] != EMPTY):
+        return False
+    if board_obj.board[7][7] != WHITE_TOTEM:
+        return False
+    old_king = board_obj.board[7][4]
+    old_totem = board_obj.board[7][7]
+    board_obj.board[7][4] = EMPTY
+    board_obj.board[7][7] = EMPTY
+    board_obj.board[7][6] = old_king
+    board_obj.board[7][5] = old_totem
+    if is_in_check(board_obj, True):
+        board_obj.board[7][4] = old_king
+        board_obj.board[7][7] = old_totem
+        board_obj.board[7][6] = EMPTY
+        board_obj.board[7][5] = EMPTY
+        return False
+    board_obj.white_king_moved = True
+    board_obj.white_right_rook_moved = True
+    return True
+
+def white_castle_long_inplace_nativi(board_obj):
+    if board_obj.white_king_moved or board_obj.white_left_rook_moved:
+        return False
+    if is_in_check(board_obj, True):
+        return False
+    if (board_obj.board[7][1] != EMPTY or
+        board_obj.board[7][2] != EMPTY or
+        board_obj.board[7][3] != EMPTY):
+        return False
+    if board_obj.board[7][0] != WHITE_TOTEM:
+        return False
+    old_king = board_obj.board[7][4]
+    old_totem = board_obj.board[7][0]
+    board_obj.board[7][4] = EMPTY
+    board_obj.board[7][0] = EMPTY
+    board_obj.board[7][2] = old_king
+    board_obj.board[7][3] = old_totem
+    if is_in_check(board_obj, True):
+        board_obj.board[7][4] = old_king
+        board_obj.board[7][0] = old_totem
+        board_obj.board[7][2] = EMPTY
+        board_obj.board[7][3] = EMPTY
+        return False
+    board_obj.white_king_moved = True
+    board_obj.white_left_rook_moved = True
+    return True
+
+def black_castle_short_inplace_nativi(board_obj):
+    if board_obj.black_king_moved or board_obj.black_right_rook_moved:
+        return False
+    if is_in_check(board_obj, False):
+        return False
+    if (board_obj.board[0][5] != EMPTY or board_obj.board[0][6] != EMPTY):
+        return False
+    if board_obj.board[0][7] != BLACK_TOTEM:
+        return False
+    old_king = board_obj.board[0][4]
+    old_totem = board_obj.board[0][7]
+    board_obj.board[0][4] = EMPTY
+    board_obj.board[0][7] = EMPTY
+    board_obj.board[0][6] = old_king
+    board_obj.board[0][5] = old_totem
+    if is_in_check(board_obj, False):
+        board_obj.board[0][4] = old_king
+        board_obj.board[0][7] = old_totem
+        board_obj.board[0][6] = EMPTY
+        board_obj.board[0][5] = EMPTY
+        return False
+    board_obj.black_king_moved = True
+    board_obj.black_right_rook_moved = True
+    return True
+
+def black_castle_long_inplace_nativi(board_obj):
+    if board_obj.black_king_moved or board_obj.black_left_rook_moved:
+        return False
+    if is_in_check(board_obj, False):
+        return False
+    if (board_obj.board[0][1] != EMPTY or
+        board_obj.board[0][2] != EMPTY or
+        board_obj.board[0][3] != EMPTY):
+        return False
+    if board_obj.board[0][0] != BLACK_TOTEM:
+        return False
+    old_king = board_obj.board[0][4]
+    old_totem = board_obj.board[0][0]
+    board_obj.board[0][4] = EMPTY
+    board_obj.board[0][0] = EMPTY
+    board_obj.board[0][2] = old_king
+    board_obj.board[0][3] = old_totem
+    if is_in_check(board_obj, False):
+        board_obj.board[0][4] = old_king
+        board_obj.board[0][0] = old_totem
+        board_obj.board[0][2] = EMPTY
+        board_obj.board[0][3] = EMPTY
+        return False
+    board_obj.black_king_moved = True
+    board_obj.black_left_rook_moved = True
+    return True
+
+# -------------------------------------------------------
+# Funzioni "board_state.py" incorporate qui
+# -------------------------------------------------------
+from piece_movement.piece_attacks import is_square_attacked
+
+def is_in_check(board_obj, white=True):
+    """
+    True se il Re (del colore white) è attaccato. Ricavato da board_state.py.
+    """
+    kr, kc = find_king_position(board_obj, white)
+    if kr is None:
+        return False
+    return is_square_attacked(board_obj.board, kr, kc, by_white=(not white))
+
+def find_king_position(board_obj, white):
+    """
+    Sostituisce 'find_king(board_obj.board, white)' con un loop locale.
+    (Oppure potresti importare 'find_king' se preferisci.)
+    """
+    king = WHITE_KING if white else BLACK_KING
+    for rr in range(BOARD_SIZE):
+        for cc in range(BOARD_SIZE):
+            if board_obj.board[rr][cc] == king:
+                return (rr, cc)
+    return (None, None)
+
+def is_game_over(board_obj):
+    """
+    Restituisce True se la partita è già segnata come finita (board_obj.game_over).
+    """
+    return board_obj.game_over
+
+def get_winner(board_obj):
+    """
+    Ritorna board_obj.winner (es. 'White', 'Black', 'Draw'), se definito.
+    """
+    return board_obj.winner
+
+# -------------------------------------------------------
+# Funzioni "board_moves.py" incorporate qui
+# -------------------------------------------------------
 def can_move_piece(board_obj, piece):
     if piece == EMPTY:
         return False
@@ -37,7 +276,6 @@ def can_move_piece(board_obj, piece):
 
 def get_all_legal_moves(board_obj, white=True):
     out = []
-    #from piece_movement import BOARD_SIZE
     for r in range(BOARD_SIZE):
         for c in range(BOARD_SIZE):
             p = board_obj.board[r][c]
@@ -58,16 +296,16 @@ def get_legal_moves_for_square(board_obj, r, c):
         return []
     if not can_move_piece(board_obj, p):
         return []
-    
+
     pseudo = get_all_pseudo_moves_for_square(board_obj.board, board_obj.turn_white, r, c)
     real_moves = []
     for (rr, cc) in pseudo:
         if not does_move_leave_king_in_check(board_obj, r, c, rr, cc):
             real_moves.append((rr, cc))
 
-    # ------------------------------------
-    # Logica per l'arrocco (aggiunge (r, c) -> (r, c±2) se è possibile)
-    if p == WHITE_KING and board_obj.white_faction == "classici" and board_obj.turn_white and not board_obj.white_king_moved and (r,c) == (7,4):
+    # Arrocco classici
+    if p == WHITE_KING and board_obj.white_faction == "classici" and board_obj.turn_white \
+       and not board_obj.white_king_moved and (r, c) == (7, 4):
         # corto => (7,6)
         if (not board_obj.white_right_rook_moved) \
            and board_obj.board[7][5] == EMPTY and board_obj.board[7][6] == EMPTY \
@@ -85,7 +323,8 @@ def get_legal_moves_for_square(board_obj, r, c):
            and (not does_move_leave_king_in_check(board_obj, 7,4,7,2)):
             real_moves.append((7, 2))
 
-    if p == BLACK_KING and board_obj.black_faction == "classici" and (not board_obj.turn_white) and not board_obj.black_king_moved and (r,c) == (0,4):
+    if p == BLACK_KING and board_obj.black_faction == "classici" and (not board_obj.turn_white) \
+       and not board_obj.black_king_moved and (r, c) == (0, 4):
         # corto => (0,6)
         if (not board_obj.black_right_rook_moved) \
            and board_obj.board[0][5] == EMPTY and board_obj.board[0][6] == EMPTY \
@@ -104,7 +343,8 @@ def get_legal_moves_for_square(board_obj, r, c):
             real_moves.append((0, 2))
 
     # Arrocco nativi
-    if p == WHITE_KING and board_obj.white_faction == "nativi" and board_obj.turn_white and not board_obj.white_king_moved and (r,c) == (7,4):
+    if p == WHITE_KING and board_obj.white_faction == "nativi" and board_obj.turn_white \
+       and not board_obj.white_king_moved and (r, c) == (7, 4):
         # corto => (7,6)
         if (not board_obj.white_right_rook_moved) \
            and board_obj.board[7][5] == EMPTY and board_obj.board[7][6] == EMPTY \
@@ -122,7 +362,8 @@ def get_legal_moves_for_square(board_obj, r, c):
            and (not does_move_leave_king_in_check(board_obj, 7,4,7,2)):
             real_moves.append((7, 2))
 
-    if p == BLACK_KING and board_obj.black_faction == "nativi" and (not board_obj.turn_white) and not board_obj.black_king_moved and (r,c) == (0,4):
+    if p == BLACK_KING and board_obj.black_faction == "nativi" and (not board_obj.turn_white) \
+       and not board_obj.black_king_moved and (r, c) == (0, 4):
         # corto => (0,6)
         if (not board_obj.black_right_rook_moved) \
            and board_obj.board[0][5] == EMPTY and board_obj.board[0][6] == EMPTY \
@@ -237,18 +478,18 @@ def _apply_normal_move(board_obj, fr, fc, tr, tc, promotion_piece):
         if (fr, fc) == (0,4) and (tr, tc) == (0,2):
             return black_castle_long_inplace_nativi(board_obj)
 
-    # Aggiorna flag Re/torri/totem per impedire arrocco successivo
+    # Aggiorna flag Re/Torri/Totem
     if mover == WHITE_KING:
         board_obj.white_king_moved = True
     if mover == BLACK_KING:
         board_obj.black_king_moved = True
 
-    if mover == WHITE_ROOK or mover == WHITE_TOTEM:
+    if mover in (WHITE_ROOK, WHITE_TOTEM):
         if (fr, fc) == (7, 0):
             board_obj.white_left_rook_moved = True
         elif (fr, fc) == (7, 7):
             board_obj.white_right_rook_moved = True
-    if mover == BLACK_ROOK or mover == BLACK_TOTEM:
+    if mover in (BLACK_ROOK, BLACK_TOTEM):
         if (fr, fc) == (0, 0):
             board_obj.black_left_rook_moved = True
         elif (fr, fc) == (0, 7):
@@ -277,7 +518,6 @@ def _apply_normal_move(board_obj, fr, fc, tr, tc, promotion_piece):
         # se occupant è dello stesso colore => mossa illegale
         if is_white_piece(mover) == is_white_piece(occupant):
             return False
-
         # vieta la cattura se occupant è un Bison e mover è un pedone
         if occupant in (WHITE_BISON, BLACK_BISON) and mover in (WHITE_PAWN, BLACK_PAWN):
             return False
@@ -300,7 +540,7 @@ def _apply_bison_move(board_obj, fr, fc, tr, tc):
             board_obj.board[fr][fc] = bison
             return False
         # occupant è avversario
-        
+
         if occupant in (WHITE_PAWN, BLACK_PAWN):
             # spinta del pedone
             dr = tr - fr
@@ -327,7 +567,7 @@ def does_move_leave_king_in_check(board_obj, fr, fc, tr, tc):
     if board_obj.game_over:
         return True
     mover = board_obj.board[fr][fc]
-    
+
     if not can_move_piece(board_obj, mover):
         return True
 
@@ -335,18 +575,19 @@ def does_move_leave_king_in_check(board_obj, fr, fc, tr, tc):
     if not move_info["move_done"]:
         return True
 
-    #from piece_movement import is_white_piece
     mover_is_white = is_white_piece(mover)
     in_check_now = is_in_check(board_obj, mover_is_white)
     undo_move_in_place(board_obj, move_info)
     return in_check_now
 
 def check_end_of_game(board_obj):
+    """
+    Verifica se la partita è finita (scacco matto o patta),
+    come in board_moves.py. Aggiorna board_obj.game_over e board_obj.winner.
+    """
     if board_obj.game_over:
         return
-    #from piece_movement import get_all_legal_moves
-    #moves = get_all_legal_moves(board_obj) # sbagliato crea patta
-    moves = board_obj.get_all_legal_moves(board_obj.turn_white)
+    moves = get_all_legal_moves(board_obj, board_obj.turn_white)
     if not moves:
         # patta o matto
         if is_in_check(board_obj, board_obj.turn_white):

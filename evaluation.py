@@ -1,6 +1,6 @@
 # evaluation.py
 
-from customboard import CustomBoard
+import random
 from piece_movement.piece_movement_common import (
     EMPTY,
     WHITE_PAWN, BLACK_PAWN,
@@ -15,37 +15,131 @@ from piece_movement.piece_movement_common import (
     is_white_piece, is_black_piece
 )
 
-# Valori base per il materiale
-# (Abbiamo lasciato TOTEM a 4 come riferimento)
+################################################################################
+# Valori base per il materiale (base) + PST
+################################################################################
+
 PIECE_VALUE = {
     WHITE_PAWN: 1,   BLACK_PAWN: 1,
     WHITE_KNIGHT: 3, BLACK_KNIGHT: 3,
     WHITE_BISHOP: 3, BLACK_BISHOP: 3,
     WHITE_SHAMAN: 3, BLACK_SHAMAN: 3,  # simile a Bishop/Knight
-    WHITE_BISON: 4,  BLACK_BISON: 4,  # leggermente superiore a un Rook? a piacere
+    WHITE_BISON: 4,  BLACK_BISON: 4,  
     WHITE_ROOK: 5,   BLACK_ROOK: 5,
-    WHITE_TOTEM: 4,  BLACK_TOTEM: 4,  # Totem fisso
+    WHITE_TOTEM: 4,  BLACK_TOTEM: 4,
     WHITE_QUEEN: 9,  BLACK_QUEEN: 9,
-    WHITE_KING: 999, BLACK_KING: 999,
-    EMPTY: 0
+    WHITE_KING: 999, BLACK_KING: 999
 }
 
-def compute_material(board_obj: CustomBoard):
-    w, b = 0, 0
-    for r in range(8):
-        for c in range(8):
-            p = board_obj.board[r][c]
-            if p == EMPTY:
-                continue
-            if is_white_piece(p):
-                w += PIECE_VALUE[p]
-            else:
-                b += PIECE_VALUE[p]
-    return w, b
 
-def compute_material_display(board_obj: CustomBoard):
+# Esempi di Piece-Square Tables per i pezzi bianchi (quelli neri sono riflessi).
+PST_WHITE_PAWN = [
+    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
+    [ 0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2,  0.2],
+    [ 0.1,  0.1,  0.2,  0.3,  0.3,  0.2,  0.1,  0.1],
+    [ 0.05, 0.05, 0.1,  0.25, 0.25, 0.1,  0.05, 0.05],
+    [ 0.0,  0.0,  0.0,  0.2,  0.2,  0.0,  0.0,  0.0],
+    [-0.05,-0.05,-0.05, 0.0,  0.0, -0.05,-0.05,-0.05],
+    [ 0.2,  0.2,  0.0, -0.2, -0.2,  0.0,  0.2,  0.2],
+    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+]
+
+PST_WHITE_KNIGHT = [
+    [-0.5, -0.4, -0.3, -0.3, -0.3, -0.3, -0.4, -0.5],
+    [-0.4, -0.2,  0.0,  0.0,  0.0,  0.0, -0.2, -0.4],
+    [-0.3,  0.0,  0.1,  0.15, 0.15, 0.1,  0.0, -0.3],
+    [-0.3,  0.05, 0.15, 0.2,  0.2,  0.15, 0.05,-0.3],
+    [-0.3,  0.0,  0.15, 0.2,  0.2,  0.15, 0.0, -0.3],
+    [-0.3,  0.05, 0.1,  0.15, 0.15, 0.1,  0.05,-0.3],
+    [-0.4, -0.2,  0.0,  0.05, 0.05, 0.0, -0.2, -0.4],
+    [-0.5, -0.4, -0.3, -0.3, -0.3, -0.3, -0.4, -0.5]
+]
+
+PST_WHITE_BISHOP = [
+    [-0.2, -0.1, -0.1, -0.1, -0.1, -0.1, -0.1, -0.2],
+    [-0.1,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.1],
+    [-0.1,  0.0,  0.05, 0.1,  0.1,  0.05, 0.0, -0.1],
+    [-0.1,  0.05, 0.05, 0.1,  0.1,  0.05, 0.05,-0.1],
+    [-0.1,  0.0,  0.1,  0.1,  0.1,  0.1,  0.0, -0.1],
+    [-0.1,  0.1,  0.1,  0.1,  0.1,  0.1,  0.1, -0.1],
+    [-0.1,  0.05, 0.0,  0.0,  0.0,  0.0,  0.05,-0.1],
+    [-0.2, -0.1, -0.1, -0.1, -0.1, -0.1, -0.1, -0.2]
+]
+
+PST_WHITE_ROOK = [
+    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
+    [ 0.05, 0.1,  0.1,  0.1,  0.1,  0.1,  0.1,  0.05],
+    [-0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.05],
+    [-0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.05],
+    [-0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.05],
+    [-0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.05],
+    [ 0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.05],
+    [ 0.0,  0.0,  0.0,  0.05, 0.05, 0.0,  0.0,  0.0]
+]
+
+PST_WHITE_QUEEN = [
+    [-0.2, -0.1, -0.1, -0.05, -0.05, -0.1, -0.1, -0.2],
+    [-0.1,  0.0,  0.05,  0.0,   0.0,   0.05, 0.0, -0.1],
+    [-0.1,  0.05, 0.05,  0.05,  0.05,  0.05, 0.05,-0.1],
+    [-0.05, 0.0,  0.05,  0.05,  0.05,  0.05, 0.0, -0.05],
+    [-0.05, 0.0,  0.05,  0.05,  0.05,  0.05, 0.0, -0.05],
+    [-0.1,  0.05, 0.05,  0.05,  0.05,  0.05, 0.05, -0.1],
+    [-0.1,  0.0,  0.05,  0.0,   0.0,   0.05, 0.0,  -0.1],
+    [-0.2, -0.1, -0.1, -0.05, -0.05, -0.1, -0.1, -0.2]
+]
+
+PST_WHITE_KING = [
+    [-0.3, -0.4, -0.4, -0.5, -0.5, -0.4, -0.4, -0.3],
+    [-0.3, -0.4, -0.4, -0.45,-0.45,-0.4, -0.4, -0.3],
+    [-0.3, -0.4, -0.4, -0.4, -0.4, -0.4, -0.4, -0.3],
+    [-0.3, -0.4, -0.4, -0.35,-0.35,-0.4, -0.4, -0.3],
+    [-0.2, -0.3, -0.3, -0.3, -0.3, -0.3, -0.3, -0.2],
+    [-0.1, -0.2, -0.2, -0.2, -0.2, -0.2, -0.2, -0.1],
+    [ 0.2,  0.2,  0.0,  0.0,   0.0,  0.0,  0.2,  0.2],
+    [ 0.2,  0.3,  0.1,  0.0,   0.0,  0.1,  0.3,  0.2]
+]
+
+PST_WHITE_DICT = {
+    WHITE_PAWN:   PST_WHITE_PAWN,
+    WHITE_KNIGHT: PST_WHITE_KNIGHT,
+    WHITE_BISHOP: PST_WHITE_BISHOP,
+    WHITE_ROOK:   PST_WHITE_ROOK,
+    WHITE_QUEEN:  PST_WHITE_QUEEN,
+    WHITE_KING:   PST_WHITE_KING,
+    # Pezzi speciali
+    WHITE_SHAMAN: PST_WHITE_BISHOP,
+    WHITE_BISON:  PST_WHITE_ROOK,
+    WHITE_TOTEM:  PST_WHITE_KNIGHT
+}
+
+def get_pst_value(piece, row, col):
     """
-    Mostra il materiale senza contare i Re, utile per debug
+    Restituisce il bonus/malus della PST corrispondente. 
+    Se il pezzo è nero, riflettiamo la riga.
+    """
+    is_white = is_white_piece(piece)
+    if is_white:
+        base_table = PST_WHITE_DICT.get(piece, None)
+        if base_table is None:
+            return 0.0
+        return base_table[row][col]
+    else:
+        # Converti il pezzo nero al corrispettivo bianco (p-1 se p è pari)
+        white_equiv = piece - 1  
+        base_table = PST_WHITE_DICT.get(white_equiv, None)
+        if base_table is None:
+            return 0.0
+        mirrored_row = 7 - row
+        return base_table[mirrored_row][col]
+
+
+################################################################################
+# Funzione per mostrare il materiale (esclusi i Re), come in vecchia versione
+################################################################################
+
+def compute_material_display(board_obj):
+    """
+    Mostra il materiale senza contare i Re, utile per debug.
     """
     w, b = 0, 0
     for r in range(8):
@@ -55,226 +149,114 @@ def compute_material_display(board_obj: CustomBoard):
                 continue
             if p != EMPTY:
                 if is_white_piece(p):
-                    w += PIECE_VALUE[p]
+                    w += PIECE_VALUE.get(p, 0)
                 else:
-                    b += PIECE_VALUE[p]
+                    b += PIECE_VALUE.get(p, 0)
     return w, b
 
-def count_center_control(board_obj: CustomBoard):
-    # Valuta il controllo del centro (quattro caselle centrali)
-    w, b = 0, 0
-    for (r, c) in [(3, 3), (3, 4), (4, 3), (4, 4)]:
-        p = board_obj.board[r][c]
-        if p != EMPTY:
+
+################################################################################
+# 2) FUNZIONE PRINCIPALE DI VALUTAZIONE (SINGLE PASS)
+################################################################################
+
+def static_evaluation(board_obj, noise_level=1.0):
+    """
+    Restituisce un punteggio (positivo = vantaggio bianco, negativo = vantaggio nero).
+      - Material + PST
+      - Bishop pair
+      - Rook su colonna aperta
+      - King safety più incisiva
+      - Rumore modulabile
+
+    Se noise_level=0.0 => nessun rumore, valutazione deterministica.
+    """
+    import random
+
+    white_mat = 0.0
+    black_mat = 0.0
+    white_bishops = 0
+    black_bishops = 0
+    white_rooks_positions = []
+    black_rooks_positions = []
+
+    any_pawns_in_col = [0]*8  # Per la "open file"
+    white_king_pos = None
+    black_king_pos = None
+
+    # Single pass
+    for r in range(8):
+        for c in range(8):
+            p = board_obj.board[r][c]
+            if p == EMPTY:
+                continue
+
+            base_val = PIECE_VALUE.get(p, 0)
+            pst_val = get_pst_value(p, r, c)
+
             if is_white_piece(p):
-                w += 0.25
+                white_mat += (base_val + pst_val)
+                if p in (WHITE_BISHOP, WHITE_SHAMAN):
+                    white_bishops += 1
+                if p == WHITE_ROOK:
+                    white_rooks_positions.append((r,c))
+                if p == WHITE_PAWN:
+                    any_pawns_in_col[c] += 1
+                if p == WHITE_KING:
+                    white_king_pos = (r,c)
             else:
-                b += 0.25
-    return w, b
+                black_mat += (base_val + pst_val)
+                if p in (BLACK_BISHOP, BLACK_SHAMAN):
+                    black_bishops += 1
+                if p == BLACK_ROOK:
+                    black_rooks_positions.append((r,c))
+                if p == BLACK_PAWN:
+                    any_pawns_in_col[c] += 1
+                if p == BLACK_KING:
+                    black_king_pos = (r,c)
 
-def white_king_safety(board_obj: CustomBoard):
-    return -1 if board_obj.is_in_check(True) else 0
+    # bishop pair
+    if white_bishops >= 2:
+        white_mat += 0.3
+    if black_bishops >= 2:
+        black_mat += 0.3
 
-def black_king_safety(board_obj: CustomBoard):
-    return -1 if board_obj.is_in_check(False) else 0
+    # rook on open file
+    for (rr,cc) in white_rooks_positions:
+        if any_pawns_in_col[cc] == 0:
+            white_mat += 0.25
+    for (rr,cc) in black_rooks_positions:
+        if any_pawns_in_col[cc] == 0:
+            black_mat += 0.25
 
-def white_pawn_advancement_bonus(board_obj: CustomBoard):
-    bonus = 0
-    for r in range(8):
-        for c in range(8):
-            if board_obj.board[r][c] == WHITE_PAWN and r < 6:
-                bonus += (6 - r) / 4.0
-    return bonus
+    # king safety: penalizzo di più se in check
+    if board_obj.is_in_check(True):
+        white_mat -= 2.0
+    if board_obj.is_in_check(False):
+        black_mat -= 2.0
 
-def white_piece_development_bonus(board_obj: CustomBoard):
-    bonus = 0
-    for r in range(8):
-        for c in range(8):
-            p = board_obj.board[r][c]
-            if p != EMPTY and is_white_piece(p) and p != WHITE_PAWN and r != 7:
-                bonus += 0.75
-    return bonus
+    score = white_mat - black_mat
 
-def black_pawn_advancement_bonus(board_obj: CustomBoard):
-    bonus = 0
-    for r in range(8):
-        for c in range(8):
-            if board_obj.board[r][c] == BLACK_PAWN and r > 1:
-                bonus += (r - 1) / 4.0
-    return bonus
+    # noise modulabile
+    if noise_level > 0:
+        random_part = (random.random() * 2.0 - 1.0) * noise_level
+        score += random_part
 
-def black_piece_development_bonus(board_obj: CustomBoard):
-    bonus = 0
-    for r in range(8):
-        for c in range(8):
-            p = board_obj.board[r][c]
-            if p != EMPTY and is_black_piece(p) and p != BLACK_PAWN and r != 0:
-                bonus += 0.75
-    return bonus
+    return score
 
-def white_castling_bonus(board_obj: CustomBoard):
-    # Riconosce se il Re bianco è in una posizione di arrocco (0,2,6,7) su ultima traversa
-    for r in range(8):
-        for c in range(8):
-            if board_obj.board[r][c] == WHITE_KING and r == 7 and c in (0,2,6,7):
-                return 0.95
-    return 0
-
-def black_castling_bonus(board_obj: CustomBoard):
-    for r in range(8):
-        for c in range(8):
-            if board_obj.board[r][c] == BLACK_KING and r == 0 and c in (0,2,6,7):
-                return 0.95
-    return 0
-
-def get_noise(board_obj: CustomBoard):
-    # se vuoi disabilitare, puoi restituire 0
-    h = abs(hash(str(board_obj.board) + str(board_obj.game_noise_seed)))
-    return ((h % 21) - 10) / 30.0
-
-def white_passed_pawn_bonus(board_obj: CustomBoard):
-    bonus = 0.0
-    for r in range(8):
-        for c in range(8):
-            if board_obj.board[r][c] == WHITE_PAWN:
-                passed = True
-                for rr in range(0, r):
-                    for cc in [c-1, c, c+1]:
-                        if 0 <= cc < 8:
-                            if board_obj.board[rr][cc] == BLACK_PAWN:
-                                passed = False
-                if passed:
-                    bonus += 0.25
-    return bonus
-
-def black_passed_pawn_bonus(board_obj: CustomBoard):
-    bonus = 0.0
-    for r in range(8):
-        for c in range(8):
-            if board_obj.board[r][c] == BLACK_PAWN:
-                passed = True
-                for rr in range(r+1, 8):
-                    for cc in [c-1, c, c+1]:
-                        if 0 <= cc < 8:
-                            if board_obj.board[rr][cc] == WHITE_PAWN:
-                                passed = False
-                if passed:
-                    bonus += 0.25
-    return bonus
-
-def passed_pawn_bonus(board_obj: CustomBoard):
-    return white_passed_pawn_bonus(board_obj) - black_passed_pawn_bonus(board_obj)
-
-def white_doubled_pawn_penalty(board_obj: CustomBoard):
-    penalty = 0.0
-    for c in range(8):
-        count = 0
-        for r in range(8):
-            if board_obj.board[r][c] == WHITE_PAWN:
-                count += 1
-        if count > 1:
-            penalty += (count - 1) * 0.125
-    return penalty
-
-def black_doubled_pawn_penalty(board_obj: CustomBoard):
-    penalty = 0.0
-    for c in range(8):
-        count = 0
-        for r in range(8):
-            if board_obj.board[r][c] == BLACK_PAWN:
-                count += 1
-        if count > 1:
-            penalty += (count - 1) * 0.125
-    return penalty
-
-def doubled_pawn_penalty_diff(board_obj: CustomBoard):
-    return black_doubled_pawn_penalty(board_obj) - white_doubled_pawn_penalty(board_obj)
-
-def white_pawn_attack_penalty(board_obj: CustomBoard):
+def deterministic_evaluation(board_obj):
     """
-    Penalizza i pezzi bianchi (diversi dal pedone) se sono attaccabili da un pedone nero.
+    Identico a static_evaluation ma senza rumore.
     """
-    penalty = 0.0
-    for r in range(8):
-        for c in range(8):
-            p = board_obj.board[r][c]
-            if p != EMPTY and p != WHITE_PAWN and is_white_piece(p):
-                if r - 1 >= 0:
-                    if (c - 1 >= 0 and board_obj.board[r - 1][c - 1] == BLACK_PAWN) or \
-                       (c + 1 < 8 and board_obj.board[r - 1][c + 1] == BLACK_PAWN):
-                        penalty += 0.25
-    return penalty
+    return static_evaluation(board_obj, noise_level=0.0)
 
-def black_pawn_attack_penalty(board_obj: CustomBoard):
-    penalty = 0.0
-    for r in range(8):
-        for c in range(8):
-            p = board_obj.board[r][c]
-            if p != EMPTY and p != BLACK_PAWN and is_black_piece(p):
-                if r + 1 < 8:
-                    if (c - 1 >= 0 and board_obj.board[r + 1][c - 1] == WHITE_PAWN) or \
-                       (c + 1 < 8 and board_obj.board[r + 1][c + 1] == WHITE_PAWN):
-                        penalty += 0.25
-    return penalty
-
-def pawn_attack_penalty_diff(board_obj: CustomBoard):
-    return white_pawn_attack_penalty(board_obj) - black_pawn_attack_penalty(board_obj)
-
-def static_evaluation(board_obj: CustomBoard):
-    m_diff = compute_material(board_obj)[0] - compute_material(board_obj)[1]
-    c_diff = count_center_control(board_obj)[0] - count_center_control(board_obj)[1]
-    k_diff = white_king_safety(board_obj) - black_king_safety(board_obj)
-    p_diff = white_pawn_advancement_bonus(board_obj) - black_pawn_advancement_bonus(board_obj)
-    d_diff = white_piece_development_bonus(board_obj) - black_piece_development_bonus(board_obj)
-    cast_diff = white_castling_bonus(board_obj) - black_castling_bonus(board_obj)
-    noise = get_noise(board_obj)
-    passed_bonus = passed_pawn_bonus(board_obj)
-    doubled_diff = doubled_pawn_penalty_diff(board_obj)
-    pawn_attack_pen = pawn_attack_penalty_diff(board_obj)
-    return (m_diff + c_diff + k_diff + p_diff + d_diff + cast_diff + noise
-            + passed_bonus - doubled_diff - pawn_attack_pen)
-
-def deterministic_evaluation(board_obj: CustomBoard):
-    # identico ma senza noise
-    m_diff = compute_material(board_obj)[0] - compute_material(board_obj)[1]
-    c_diff = count_center_control(board_obj)[0] - count_center_control(board_obj)[1]
-    k_diff = white_king_safety(board_obj) - black_king_safety(board_obj)
-    p_diff = white_pawn_advancement_bonus(board_obj) - black_pawn_advancement_bonus(board_obj)
-    d_diff = white_piece_development_bonus(board_obj) - black_piece_development_bonus(board_obj)
-    cast_diff = white_castling_bonus(board_obj) - black_castling_bonus(board_obj)
-    passed_bonus = passed_pawn_bonus(board_obj)
-    doubled_diff = doubled_pawn_penalty_diff(board_obj)
-    pawn_attack_pen = pawn_attack_penalty_diff(board_obj)
-    return (m_diff + c_diff + k_diff + p_diff + d_diff + cast_diff
-            + passed_bonus - doubled_diff - pawn_attack_pen)
-
-def evaluation_breakdown(board_obj: CustomBoard):
-    m_diff = compute_material(board_obj)[0] - compute_material(board_obj)[1]
-    c_diff = count_center_control(board_obj)[0] - count_center_control(board_obj)[1]
-    k_diff = white_king_safety(board_obj) - black_king_safety(board_obj)
-    wp_bonus = white_pawn_advancement_bonus(board_obj)
-    bp_bonus = black_pawn_advancement_bonus(board_obj)
-    p_diff = wp_bonus - bp_bonus
-    wp_dev = white_piece_development_bonus(board_obj)
-    bp_dev = black_piece_development_bonus(board_obj)
-    d_diff = wp_dev - bp_dev
-    cast_diff = white_castling_bonus(board_obj) - black_castling_bonus(board_obj)
-    passed_bonus = passed_pawn_bonus(board_obj)
-    doubled_diff = doubled_pawn_penalty_diff(board_obj)
-    noise = get_noise(board_obj)
-    pawn_attack_pen = pawn_attack_penalty_diff(board_obj)
-    total = (m_diff + c_diff + k_diff + p_diff + d_diff
-             + cast_diff + noise + passed_bonus - doubled_diff - pawn_attack_pen)
-    return {
-        "material_diff": m_diff,
-        "center_diff": c_diff,
-        "king_diff": k_diff,
-        "pawn_adv_diff": p_diff,
-        "piece_dev_diff": d_diff,
-        "cast_diff": cast_diff,
-        "passed_pawn_bonus": passed_bonus,
-        "doubled_pawn_penalty_diff": doubled_diff,
-        "pawn_attack_penalty": pawn_attack_pen,
-        "noise": noise,
-        "total": total
+def evaluation_breakdown(board_obj):
+    """
+    Restituisce un dizionario con i principali contributi.
+    Per semplicità, qui calcoliamo la valutazione come se fosse static_evaluation(...,noise=0).
+    """
+    score = static_evaluation(board_obj, noise_level=0.0)
+    breakdown_dict = {
+        "score": score,
+        "info": "Valutazione PST, bishop pair, rook open file, king safety, no noise",
     }
+    return breakdown_dict
