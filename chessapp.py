@@ -517,7 +517,7 @@ class ChessApp:
         if self.mode==2:
             if self.game_board.turn_white:
                 return
-            mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=6)
+            mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=10)
             if mv is None:
                 return
             (fr, fc, tr, tc) = mv
@@ -539,8 +539,8 @@ class ChessApp:
         elif self.mode==3:
             if self.game_board.is_game_over():
                 return
-            depth=3
-            mv = iterative_deepening_decision(self.game_board, max_depth=depth, max_time=6)
+            depth=4
+            mv = iterative_deepening_decision(self.game_board, max_depth=depth, max_time=10)
             if mv is None:
                 return
             (fr, fc, tr, tc) = mv
