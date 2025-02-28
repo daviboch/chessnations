@@ -14,8 +14,7 @@ from customboard import CustomBoard
 
 from evaluation import (
     compute_material_display,
-    deterministic_evaluation,
-    evaluation_breakdown
+    deterministic_evaluation
 )
 from ai_engine import (
     iterative_deepening_decision,
@@ -38,40 +37,53 @@ from piece_movement.piece_movement_common import (
     PIECE_NAME_MAP
 )
 
-def convert_move_to_algebraic_detailed(move: tuple, board_before: CustomBoard) -> str:
-    (fr, fc, tr, tc) = move
-    mover = board_before.board[fr][fc]
-    start = f"{chr(ord('a') + fc)}{8 - fr}"
-    dest = f"{chr(ord('a') + tc)}{8 - tr}"
-    piece_str = PIECE_NAME_MAP.get(mover, str(mover))
-    move_str = f"{piece_str} from {start} to {dest}"
-    return move_str
+###############################################################################
+# Configurazioni grafiche
+###############################################################################
+CELL_SIZE = 100
+MARGIN = 30
 
+# Colore della casella di partenza dell'ultima mossa
+HIGHLIGHT_COLOR = "#f7f79a"
+
+# Colori base della scacchiera
+LIGHT_COLOR = "#f0d9b5"
+DARK_COLOR  = "#b58863"
+
+# Fattore di ingrandimento pezzo sulla casella di arrivo
+SCALE_FACTOR = 1.18
+
+
+###############################################################################
+# Funzioni di conversione mosse
+###############################################################################
 def convert_move_to_algebraic(raw_move: str) -> str:
+    """
+    Converte una stringa di mossa nel formato "mover@(fr,fc)->(tr,tc)" 
+    in un formato algebrico "PieceName from e2 to e4", sfruttando PIECE_NAME_MAP.
+    """
     parts = raw_move.split('@')
     if len(parts) < 2:
         return raw_move
-    piece_part = parts[0]  # es. "17"
+    piece_part = parts[0]
     coords_part = '@'.join(parts[1:])
     arrow_split = coords_part.split('->')
     if len(arrow_split) != 2:
         return raw_move
     
-    start_str = arrow_split[0].strip().strip('()')  # "7,4"
-    end_str   = arrow_split[1].strip().strip('()')  # "7,6"
+    start_str = arrow_split[0].strip().strip('()')
+    end_str   = arrow_split[1].strip().strip('()')
 
     try:
-        # Convertiamo piece_part in int e usiamo PIECE_NAME_MAP
         piece_id = int(piece_part)
         piece_name = PIECE_NAME_MAP.get(piece_id, str(piece_id))
-    except:
-        # Se c'è un problema, lasciamo la stringa così com'è
+    except ValueError:
         piece_name = piece_part
 
     try:
         fr, fc = map(int, start_str.split(','))
         tr, tc = map(int, end_str.split(','))
-    except:
+    except ValueError:
         return raw_move
 
     start_file = chr(ord('a') + fc)
@@ -81,27 +93,88 @@ def convert_move_to_algebraic(raw_move: str) -> str:
 
     return f"{piece_name} from {start_file}{start_rank} to {end_file}{end_rank}"
 
+def convert_move_to_algebraic_detailed(move: tuple, board_before: CustomBoard) -> str:
+    """
+    Variante 'dettagliata': prende una tupla (fr, fc, tr, tc) e un CustomBoard 
+    per ricavare il nome del pezzo, e restituisce ad es. 'WHITE_KNIGHT from e2 to c3'.
+    """
+    (fr, fc, tr, tc) = move
+    mover = board_before.board[fr][fc]
+    start = f"{chr(ord('a') + fc)}{8 - fr}"
+    dest = f"{chr(ord('a') + tc)}{8 - tr}"
+    piece_str = PIECE_NAME_MAP.get(mover, str(mover))
+    return f"{piece_str} from {start} to {dest}"
+
+
+###########################################
+# ROBA UTILE PER LE FINESTRE DI DIALOGO
+###########################################
+
+def ask_option_dialog(parent, title, prompt, options):
+    """
+    Mostra una finestra di dialogo con:
+      - un messaggio `prompt`
+      - un menù a tendina con la lista `options`
+      - un pulsante OK
+    Restituisce la stringa selezionata.
+    """
+    dialog = tk.Toplevel(parent)
+    dialog.title(title)
+
+    # Impostiamo la finestra come transiente e in primo piano
+    dialog.transient(parent)            # la finestra segue parent
+    dialog.grab_set()                   # modalità 'grab' => l'utente non può cliccare altrove
+    dialog.attributes("-topmost", True) # forza la finestra in primo piano
+    dialog.lift()                       # alziamo sopra tutte le altre
+
+    var_choice = tk.StringVar(dialog)
+    var_choice.set(options[0])  # di default la prima opzione
+
+    label = tk.Label(dialog, text=prompt, font=("Helvetica", 14))
+    label.pack(padx=10, pady=10)
+
+    menu = tk.OptionMenu(dialog, var_choice, *options)
+    menu.config(font=("Helvetica", 14))
+    menu.pack(padx=10, pady=5)
+
+    def on_ok():
+        dialog.destroy()
+
+    btn_ok = tk.Button(dialog, text="OK", font=("Helvetica", 14), command=on_ok)
+    btn_ok.pack(pady=10)
+
+    # Forziamo il focus sulla finestra di dialogo
+    dialog.focus_force()
+
+    # attendiamo che la finestra si chiuda
+    parent.wait_window(dialog)
+
+    return var_choice.get()
+
+###############################################################################
+# Classe GUI
+###############################################################################
 class ChessApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Chess (Enum+2D) - simplified nativi")
-        self.margin = 20
-        self.cell_size = 60
-        canvas_width = 8*self.cell_size + 2*self.margin
-        canvas_height= 8*self.cell_size + 2*self.margin
+        self.root.title("Chess (Enum+2D) - Transparent Pieces + bigger last move")
+
+        canvas_width = 8 * CELL_SIZE + 2*MARGIN
+        canvas_height= 8 * CELL_SIZE + 2*MARGIN
+
         self.canvas = tk.Canvas(self.root, width=canvas_width, height=canvas_height, bg="#d8e2dc")
         self.canvas.grid(row=0, column=0, rowspan=8)
 
-        self.status_label = tk.Label(self.root, text="Mode not selected", font=("Helvetica",16,"bold"), fg="#003049")
+        self.status_label = tk.Label(self.root, text="Mode not selected", font=("Helvetica",20,"bold"), fg="#003049")
         self.status_label.grid(row=8, column=0, pady=5)
 
-        self.material_label = tk.Label(self.root, text="", font=("Helvetica",12), fg="black")
+        self.material_label = tk.Label(self.root, text="", font=("Helvetica",14), fg="black")
         self.material_label.grid(row=9, column=0, sticky="w", padx=10)
 
-        self.evaluation_label = tk.Label(self.root, text="", font=("Helvetica",12), fg="black")
+        self.evaluation_label = tk.Label(self.root, text="", font=("Helvetica",14), fg="black")
         self.evaluation_label.grid(row=10, column=0, sticky="w", padx=10)
 
-        self.moves_listbox = tk.Listbox(self.root, width=30, height=25)
+        self.moves_listbox = tk.Listbox(self.root, width=30, height=53)
         self.moves_listbox.grid(row=0, column=1, rowspan=8, padx=10)
 
         self.newgame_button = tk.Button(self.root, text="New Game", command=self.new_game)
@@ -116,95 +189,92 @@ class ChessApp:
         self.loadpos_button = tk.Button(self.root, text="Load Position", command=self.load_position)
         self.loadpos_button.grid(row=11, column=1, pady=2)
 
-        # Scelta fazioni iniziali
-        white_faction_choice = simpledialog.askinteger("Fazione per i Bianchi",
-            "Scegli la fazione per i Bianchi:\n1) Classici\n2) Nativi",
-            minvalue=1, maxvalue=2)
-        white_faction = "classici" if white_faction_choice==1 else "nativi"
-
-        black_faction_choice = simpledialog.askinteger("Fazione per i Neri",
-            "Scegli la fazione per i Neri:\n1) Classici\n2) Nativi",
-            minvalue=1, maxvalue=2)
-        black_faction = "classici" if black_faction_choice==1 else "nativi"
-
-        self.game_board = CustomBoard(
-            white_faction=white_faction,
-            black_faction=black_faction
-        )
+        # Per evidenziare ultima mossa
+        self.last_move_from = None
+        self.last_move_to = None
 
         self.selected_square = None
-        self.piece_images = {}
+        self.game_board = None
+        self.mode = None
+
+        # Dizionari di immagini (trasparenti!)
+        self.piece_images_normal = {}
+        self.piece_images_enlarged = {}
+
+        self.setup_new_game()
+
+    def setup_new_game(self):
+        TRANSPOSITION_TABLE.clear()
+
+        # Selezione fazione bianchi (combo)
+        faction_bianchi = ask_option_dialog(
+            self.root,
+            "Fazione Bianchi",
+            "Scegli la fazione per i Bianchi:",
+            ["Classici", "Nativi"]
+        )
+        if faction_bianchi == "Classici":
+            white_faction = "classici"
+        else:
+            white_faction = "nativi"
+
+        # Selezione fazione neri (combo)
+        faction_neri = ask_option_dialog(
+            self.root,
+            "Fazione Neri",
+            "Scegli la fazione per i Neri:",
+            ["Classici", "Nativi"]
+        )
+        if faction_neri == "Classici":
+            black_faction = "classici"
+        else:
+            black_faction = "nativi"
+
+        # Creiamo la scacchiera
+        self.game_board = CustomBoard(white_faction=white_faction, black_faction=black_faction)
+        random.seed(time.time())
+        self.game_board.game_noise_seed = random.randint(0, 1000000)
+        print("Nuova partita, seed =", self.game_board.game_noise_seed)
+
+        self.selected_square = None
+        self.last_move_from = None
+        self.last_move_to = None
+
+        # Selezione modalità (combo)
+        mode_str = ask_option_dialog(
+            self.root,
+            "Modalità di gioco",
+            "Scegli la modalità:",
+            ["Player vs Player", "Player (White) vs AI (Black)", "AI vs AI"]
+        )
+        if mode_str == "Player vs Player":
+            self.mode = 1
+            self.status_label.config(text="Player vs Player")
+        elif mode_str == "Player (White) vs AI (Black)":
+            self.mode = 2
+            self.status_label.config(text="Player (White) vs AI (Black)")
+        else:
+            self.mode = 3
+            self.status_label.config(text="AI vs AI")
+
         self.load_piece_images()
         self.draw_board()
         self.canvas.bind("<Button-1>", self.on_click)
 
-        random.seed(time.time())
-        self.game_board.game_noise_seed = random.randint(0, 1000000)
-        print("Prima partita, seed =", self.game_board.game_noise_seed)
-
-        # Scelta modalità
-        self.mode = simpledialog.askinteger(
-            "Modalità di gioco",
-            "Scegli modalità:\n1) Player vs Player\n2) Player (White) vs AI (Black)\n3) AI vs AI",
-            minvalue=1, maxvalue=3
-        )
-        if self.mode == 1:
-            self.status_label.config(text="Player vs Player")
-        elif self.mode == 2:
-            self.status_label.config(text="Player (White) vs AI (Black)")
-            if not self.game_board.turn_white:
-                self.root.after(200, self.ai_move)
-        elif self.mode == 3:
-            self.status_label.config(text="AI vs AI")
+        # Avvio dell'AI se necessario
+        if self.mode == 2 and not self.game_board.turn_white:
             self.root.after(200, self.ai_move)
-
-    def update_evaluation(self):
-        w_disp, b_disp = compute_material_display(self.game_board)
-        diff_disp = w_disp - b_disp
-        material_text = f"Material (excl. King): White {w_disp} - Black {b_disp} (diff: {diff_disp})"
-        det_eval = deterministic_evaluation(self.game_board)
-        eval_text = f"Evaluation (deterministic): {det_eval:.2f}"
-        self.material_label.config(text=material_text)
-        self.evaluation_label.config(text=eval_text)
+        elif self.mode == 3:
+            self.root.after(200, self.ai_move)
 
     def new_game(self):
-        from ai_engine import TRANSPOSITION_TABLE
-        TRANSPOSITION_TABLE.clear()
-
-        white_faction_choice = simpledialog.askinteger("Fazione per i Bianchi",
-            "Scegli la fazione per i Bianchi:\n1) Classici\n2) Nativi",
-            minvalue=1, maxvalue=2)
-        white_faction = "classici" if white_faction_choice==1 else "nativi"
-
-        black_faction_choice = simpledialog.askinteger("Fazione per i Neri",
-            "Scegli la fazione per i Neri:\n1) Classici\n2) Nativi",
-            minvalue=1, maxvalue=2)
-        black_faction = "classici" if black_faction_choice==1 else "nativi"
-
-        self.game_board = CustomBoard(white_faction=white_faction, black_faction=black_faction)
-        random.seed(time.time())
-        self.game_board.game_noise_seed = random.randint(0,1000000)
-        print("Nuova partita, seed =", self.game_board.game_noise_seed)
-
-        self.selected_square = None
-        self.draw_board()
-        self.update_status()
-        self.update_moves_list()
-
-        self.mode = simpledialog.askinteger("Modalità di gioco",
-            "Scegli modalità:\n1) Player vs Player\n2) Player (White) vs AI (Black)\n3) AI vs AI",
-            minvalue=1, maxvalue=3)
-        if self.mode == 1:
-            self.status_label.config(text="Player vs Player")
-        elif self.mode == 2:
-            self.status_label.config(text="Player (White) vs AI (Black)")
-            if not self.game_board.turn_white:
-                self.root.after(200, self.ai_move)
-        elif self.mode == 3:
-            self.status_label.config(text="AI vs AI")
-            self.root.after(200, self.ai_move)
+        self.setup_new_game()
 
     def load_piece_images(self):
+        """
+        Carica le immagini dei pezzi in due dimensioni (normale e ingrandita),
+        SENZA composizione con sfondo, così da mantenere la trasparenza attorno al pezzo.
+        """
         piece_filenames = {
             WHITE_PAWN:   "wpawn.png",
             WHITE_TOTEM:  "wtotem.png",
@@ -225,77 +295,106 @@ class ChessApp:
             BLACK_BISON:  "bbison.png",
             BLACK_SHAMAN: "bshaman.png",
         }
-        bg_light = (240,217,181,255)
-        bg_dark  = (181,136,99,255)
+
+        enlarged_size = int(CELL_SIZE * SCALE_FACTOR)
+
         for p, filename in piece_filenames.items():
             try:
                 img_path = f"images/{filename}"
                 from PIL import Image
                 base_img = Image.open(img_path).convert("RGBA")
-                light_bg = Image.new("RGBA", base_img.size, bg_light)
-                dark_bg  = Image.new("RGBA", base_img.size, bg_dark)
-                light_comp = Image.alpha_composite(light_bg, base_img).resize((self.cell_size, self.cell_size), LANCZOS_FILTER)
-                dark_comp  = Image.alpha_composite(dark_bg, base_img).resize((self.cell_size, self.cell_size), LANCZOS_FILTER)
+
+                # Ridimensioniamo a 60x60 (normale)
+                normal_img = base_img.resize((CELL_SIZE, CELL_SIZE), LANCZOS_FILTER)
+                # Ridimensioniamo a ~72x72 (ingrandita)
+                enlarged_img = base_img.resize((enlarged_size, enlarged_size), LANCZOS_FILTER)
 
                 from PIL import ImageTk
-                self.piece_images.setdefault(p, {})
-                self.piece_images[p]["light"] = ImageTk.PhotoImage(light_comp)
-                self.piece_images[p]["dark"]  = ImageTk.PhotoImage(dark_comp)
+                self.piece_images_normal[p] = ImageTk.PhotoImage(normal_img)
+                self.piece_images_enlarged[p] = ImageTk.PhotoImage(enlarged_img)
+
             except Exception as e:
                 print(f"Could not load piece {p} => {filename}: {e}")
 
     def draw_board(self):
+        """
+        Disegno della scacchiera:
+         - Cella di partenza ultima mossa => giallina
+         - Cella di arrivo => pezzo ingrandito
+         - Altre celle => normali
+         - Lo sfondo è sempre colorato da un rettangolo, 
+           e poi ci appoggiamo il pezzo con trasparenza.
+        """
         self.canvas.delete("all")
-        colors = ["#f0d9b5", "#b58863"]
-        offset = self.margin
+
+        # 1) Celle
         for r in range(8):
             for c in range(8):
-                color = colors[(r+c)%2]
-                x1 = offset + c*self.cell_size
-                y1 = offset + r*self.cell_size
-                x2 = x1 + self.cell_size
-                y2 = y1 + self.cell_size
-                self.canvas.create_rectangle(x1,y1,x2,y2, fill=color, outline="")
+                # Se è la cella di partenza, giallino
+                if (r, c) == self.last_move_from:
+                    color = HIGHLIGHT_COLOR
+                else:
+                    # Base chiaro/scuro
+                    color = LIGHT_COLOR if (r + c) % 2 == 0 else DARK_COLOR
 
+                x1 = MARGIN + c*CELL_SIZE
+                y1 = MARGIN + r*CELL_SIZE
+                x2 = x1 + CELL_SIZE
+                y2 = y1 + CELL_SIZE
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="")
+
+        # 2) Pezzi
         for r in range(8):
             for c in range(8):
                 piece = self.game_board.board[r][c]
-                if piece != EMPTY:
-                    imgs = self.piece_images.get(piece, {})
-                    img = imgs.get("light") if ((r+c)%2==0) else imgs.get("dark")
-                    if img is not None:
-                        x1 = offset + c*self.cell_size
-                        y1 = offset + r*self.cell_size
-                        self.canvas.create_image(x1,y1, image=img, anchor="nw")
+                if piece == EMPTY:
+                    continue
 
-        font_coords = ("Helvetica",10,"bold")
-        for c in range(8):
-            file_label = chr(ord('a') + c)
-            x = offset + c*self.cell_size + self.cell_size/2
-            y = offset + 8*self.cell_size + 10
+                if (r, c) == self.last_move_to:
+                    # Usa versione ingrandita
+                    img = self.piece_images_enlarged.get(piece, None)
+                    if img:
+                        enlarged_size = int(CELL_SIZE * SCALE_FACTOR)
+                        offset_x = MARGIN + c*CELL_SIZE - (enlarged_size - CELL_SIZE)//2
+                        offset_y = MARGIN + r*CELL_SIZE - (enlarged_size - CELL_SIZE)//2
+                        self.canvas.create_image(offset_x, offset_y, image=img, anchor="nw")
+                else:
+                    # Versione normale
+                    img = self.piece_images_normal.get(piece, None)
+                    if img:
+                        x1 = MARGIN + c*CELL_SIZE
+                        y1 = MARGIN + r*CELL_SIZE
+                        self.canvas.create_image(x1, y1, image=img, anchor="nw")
+
+        # 3) Coordinate file/rank
+        font_coords = ("Helvetica", 14, "bold")
+        for cc in range(8):
+            file_label = chr(ord('a') + cc)
+            x = MARGIN + cc * CELL_SIZE + CELL_SIZE/2
+            y = MARGIN + 8 * CELL_SIZE + 10
             self.canvas.create_text(x, y, text=file_label, font=font_coords)
-        for r in range(8):
-            rank_label = 8 - r
-            x = offset - 10
-            y = offset + r*self.cell_size + self.cell_size/2
+        for rr in range(8):
+            rank_label = 8 - rr
+            x = MARGIN - 10
+            y = MARGIN + rr * CELL_SIZE + CELL_SIZE/2
             self.canvas.create_text(x, y, text=str(rank_label), font=font_coords)
 
     def highlight_legal_moves(self, fr, fc):
         moves = self.game_board.get_legal_moves_for_square(fr, fc)
-        offset = self.margin
         for (tr, tc) in moves:
-            x1 = offset + tc*self.cell_size
-            y1 = offset + tr*self.cell_size
-            x2 = x1 + self.cell_size
-            y2 = y1 + self.cell_size
-            self.canvas.create_rectangle(x1,y1,x2,y2, outline="green", width=2)
+            x1 = MARGIN + tc*CELL_SIZE
+            y1 = MARGIN + tr*CELL_SIZE
+            x2 = x1 + CELL_SIZE
+            y2 = y1 + CELL_SIZE
+            self.canvas.create_rectangle(x1, y1, x2, y2, outline="green", width=4)
 
     def on_click(self, event):
         if self.game_board.is_game_over():
             return
-        col = (event.x - self.margin) // self.cell_size
-        row = (event.y - self.margin) // self.cell_size
-        if row<0 or row>=8 or col<0 or col>=8:
+
+        col = (event.x - MARGIN) // CELL_SIZE
+        row = (event.y - MARGIN) // CELL_SIZE
+        if not (0 <= row < 8 and 0 <= col < 8):
             return
 
         if self.selected_square is None:
@@ -309,23 +408,86 @@ class ChessApp:
                 self.selected_square = None
                 self.draw_board()
                 return
+
             mover = self.game_board.board[fr][fc]
+            occupant = self.game_board.board[row][col]
             ok = self.game_board.make_move(fr, fc, row, col)
             self.selected_square = None
-            self.draw_board()
             if ok:
                 move_str = f"{mover}@({fr},{fc})->({row},{col})"
-                self.game_board.move_history.append(move_str)
+                self.last_move_from = (fr, fc)
+                self.last_move_to   = (row, col)
+
+                idx = self.moves_listbox.size()
                 self.moves_listbox.insert(tk.END, convert_move_to_algebraic(move_str))
+                if occupant != EMPTY:
+                    self.moves_listbox.itemconfig(idx, fg="red")
+
+                #self.game_board.move_history.append(move_str) DUPLICATO
+                self.draw_board()
                 self.update_evaluation()
                 self.update_status()
+
                 if self.game_board.is_game_over():
                     messagebox.showinfo("Game Over", f"Winner: {self.game_board.winner}")
                 else:
-                    if self.mode==2 and not self.game_board.turn_white:
+                    if self.mode == 2 and not self.game_board.turn_white:
                         self.root.after(200, self.ai_move)
-                    elif self.mode==3:
+                    elif self.mode == 3:
                         self.root.after(200, self.ai_move)
+            else:
+                self.draw_board()
+
+    def ai_move(self):
+        if self.game_board.is_game_over():
+            return
+
+        mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=10)
+        if mv is None:
+            return
+
+        (fr, fc, tr, tc) = mv
+        mover = self.game_board.board[fr][fc]
+        occupant = self.game_board.board[tr][tc]
+
+        ok = self.game_board.make_move(fr, fc, tr, tc)
+        if ok:
+            move_str = f"{mover}@({fr},{fc})->({tr},{tc})"
+            self.last_move_from = (fr, fc)
+            self.last_move_to   = (tr, tc)
+
+            idx = self.moves_listbox.size()
+            self.moves_listbox.insert(tk.END, convert_move_to_algebraic(move_str))
+            if occupant != EMPTY:
+                self.moves_listbox.itemconfig(idx, fg="red")
+
+            self.game_board.move_history.append(move_str)
+            self.update_evaluation()
+            self.draw_board()
+            self.update_status()
+
+            print("-----")
+            if self.game_board.turn_white:
+                print("New evaluation after move of black:")
+            else:
+                print("New evaluation after move of white:")
+            print(evaluation_breakdown(self.game_board))
+            print()
+
+            if self.game_board.is_game_over():
+                messagebox.showinfo("Game Over", f"Winner: {self.game_board.winner}")
+            else:
+                if self.mode == 3:
+                    self.root.after(200, self.ai_move)
+
+    def update_evaluation(self):
+        w_disp, b_disp = compute_material_display(self.game_board)
+        diff_disp = w_disp - b_disp
+        material_text = f"Material (excl. King): White {w_disp} - Black {b_disp} (diff: {diff_disp})"
+        det_eval = deterministic_evaluation(self.game_board)
+        eval_text = f"Evaluation (deterministic): {det_eval:.2f}"
+        self.material_label.config(text=material_text)
+        self.evaluation_label.config(text=eval_text)
 
     def update_status(self):
         if self.game_board.is_game_over():
@@ -334,17 +496,12 @@ class ChessApp:
             turn_str = "White" if self.game_board.turn_white else "Black"
             self.status_label.config(text=f"Turn: {turn_str}")
 
-    def update_moves_list(self):
-        self.moves_listbox.delete(0, tk.END)
-        for mv in self.game_board.move_history:
-            self.moves_listbox.insert(tk.END, convert_move_to_algebraic(mv))
-
     def export_pgn(self):
         lines = []
         for idx, mv in enumerate(self.game_board.move_history):
             algeb = convert_move_to_algebraic(mv)
-            if idx%2==0:
-                move_num = (idx//2)+1
+            if idx % 2 == 0:
+                move_num = (idx // 2) + 1
                 lines.append(f"{move_num}. {algeb}")
             else:
                 lines[-1] += f" {algeb}"
@@ -357,11 +514,9 @@ class ChessApp:
             return
         try:
             with open(filename,"w") as f:
-                # Scrivi la board (8 righe)
                 for r in range(8):
                     row_pieces = [str(self.game_board.board[r][c]) for c in range(8)]
                     f.write(",".join(row_pieces)+"\n")
-                # game_over, winner, turn
                 f.write("GAME_OVER:\n")
                 f.write(f"{self.game_board.game_over}\n")
                 winner_str = self.game_board.winner if self.game_board.winner else "None"
@@ -369,7 +524,6 @@ class ChessApp:
                 turn_str = "W" if self.game_board.turn_white else "B"
                 f.write(f"Turn:{turn_str}\n")
 
-                # Salva i flag di arrocco
                 f.write(f"WHITE_KING_MOVED:{self.game_board.white_king_moved}\n")
                 f.write(f"WHITE_LEFT_ROOK_MOVED:{self.game_board.white_left_rook_moved}\n")
                 f.write(f"WHITE_RIGHT_ROOK_MOVED:{self.game_board.white_right_rook_moved}\n")
@@ -377,7 +531,7 @@ class ChessApp:
                 f.write(f"BLACK_LEFT_ROOK_MOVED:{self.game_board.black_left_rook_moved}\n")
                 f.write(f"BLACK_RIGHT_ROOK_MOVED:{self.game_board.black_right_rook_moved}\n")
 
-                # Salva i poteri ereditati
+                # Eredità Totem
                 if self.game_board.white_totem_inherited is None:
                     f.write("WHITE_TOTEM_INHERITED:NONE\n")
                 else:
@@ -388,7 +542,6 @@ class ChessApp:
                 else:
                     f.write(f"BLACK_TOTEM_INHERITED:{self.game_board.black_totem_inherited}\n")
 
-                # Move history
                 f.write("MOVE_HISTORY:\n")
                 for move_item in self.game_board.move_history:
                     f.write(move_item+"\n")
@@ -409,11 +562,10 @@ class ChessApp:
                 return
             new_board = CustomBoard()
             random.seed(time.time())
-            new_board.game_noise_seed = random.randint(0, 1000000)
+            new_board.game_noise_seed = random.randint(0,1000000)
             print("Partita caricata, nuovo seed =", new_board.game_noise_seed)
             new_board.move_history.clear()
 
-            # --- Caricamento scacchiera (8 righe) ---
             for r in range(8):
                 row_line = lines[r].strip()
                 piece_names = row_line.split(",")
@@ -424,7 +576,6 @@ class ChessApp:
                     new_board.board[r][c] = int(piece_names[c])
 
             idx = 8
-            # Legge GAME_OVER:
             if idx>=len(lines) or not lines[idx].startswith("GAME_OVER:"):
                 messagebox.showerror("Error","Formato file non corretto (GAME_OVER).")
                 return
@@ -433,7 +584,6 @@ class ChessApp:
             new_board.game_over = (val_go=="True")
             idx+=1
 
-            # WINNER:
             if idx>=len(lines) or not lines[idx].startswith("WINNER:"):
                 messagebox.showerror("Error","Formato file non corretto (WINNER).")
                 return
@@ -444,7 +594,6 @@ class ChessApp:
                 new_board.winner = winner_val
             idx+=1
 
-            # Turn:
             if idx>=len(lines) or not lines[idx].startswith("Turn:"):
                 messagebox.showerror("Error","Formato file non corretto (Turn).")
                 return
@@ -452,7 +601,6 @@ class ChessApp:
             new_board.turn_white = (turn_str=="W")
             idx+=1
 
-            # Flag arrocco:
             def parse_bool(line_str, prefix):
                 if not line_str.startswith(prefix):
                     messagebox.showerror("Error", f"Formato file non corretto ({prefix}).")
@@ -460,49 +608,42 @@ class ChessApp:
                 val = line_str.split(":",1)[1].strip()
                 return (val=="True")
 
-            # WHITE_KING_MOVED
             if idx<len(lines):
                 wkm = parse_bool(lines[idx], "WHITE_KING_MOVED")
                 if wkm is None: return
                 new_board.white_king_moved = wkm
                 idx+=1
 
-            # WHITE_LEFT_ROOK_MOVED
             if idx<len(lines):
                 wlrm = parse_bool(lines[idx], "WHITE_LEFT_ROOK_MOVED")
                 if wlrm is None: return
                 new_board.white_left_rook_moved = wlrm
                 idx+=1
 
-            # WHITE_RIGHT_ROOK_MOVED
             if idx<len(lines):
                 wrrm = parse_bool(lines[idx], "WHITE_RIGHT_ROOK_MOVED")
                 if wrrm is None: return
                 new_board.white_right_rook_moved = wrrm
                 idx+=1
 
-            # BLACK_KING_MOVED
             if idx<len(lines):
                 bkm = parse_bool(lines[idx], "BLACK_KING_MOVED")
                 if bkm is None: return
                 new_board.black_king_moved = bkm
                 idx+=1
 
-            # BLACK_LEFT_ROOK_MOVED
             if idx<len(lines):
                 blrm = parse_bool(lines[idx], "BLACK_LEFT_ROOK_MOVED")
                 if blrm is None: return
                 new_board.black_left_rook_moved = blrm
                 idx+=1
 
-            # BLACK_RIGHT_ROOK_MOVED
             if idx<len(lines):
                 brrm = parse_bool(lines[idx], "BLACK_RIGHT_ROOK_MOVED")
                 if brrm is None: return
                 new_board.black_right_rook_moved = brrm
                 idx+=1
 
-            # WHITE_TOTEM_INHERITED
             if idx<len(lines) and lines[idx].startswith("WHITE_TOTEM_INHERITED:"):
                 wti_str = lines[idx].split(":",1)[1].strip()
                 if wti_str == "NONE":
@@ -511,7 +652,6 @@ class ChessApp:
                     new_board.white_totem_inherited = wti_str
                 idx+=1
 
-            # BLACK_TOTEM_INHERITED
             if idx<len(lines) and lines[idx].startswith("BLACK_TOTEM_INHERITED:"):
                 bti_str = lines[idx].split(":",1)[1].strip()
                 if bti_str == "NONE":
@@ -520,7 +660,6 @@ class ChessApp:
                     new_board.black_totem_inherited = bti_str
                 idx+=1
 
-            # MOVE_HISTORY:
             if idx<len(lines) and lines[idx].strip()=="MOVE_HISTORY:":
                 idx+=1
                 while idx<len(lines):
@@ -531,63 +670,17 @@ class ChessApp:
 
             self.game_board = new_board
             self.selected_square = None
+            self.last_move_from = None
+            self.last_move_to = None
             self.draw_board()
             self.update_evaluation()
             self.update_status()
-            self.update_moves_list()
+
+            # Ricostruzione mosse
+            self.moves_listbox.delete(0, tk.END)
+            for mv in new_board.move_history:
+                self.moves_listbox.insert(tk.END, convert_move_to_algebraic(mv))
+
             messagebox.showinfo("Load","Posizione caricata correttamente!")
         except Exception as e:
-            messagebox.showerror("Error",f"Errore caricamento:\n{e}")
-
-    def ai_move(self):
-        if self.game_board.is_game_over():
-            return
-        from ai_engine import iterative_deepening_decision, evaluation_breakdown
-        if self.mode==2:
-            if self.game_board.turn_white:
-                return
-            mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=10)
-            if mv is None:
-                return
-            (fr, fc, tr, tc) = mv
-            mover = self.game_board.board[fr][fc]
-            ok = self.game_board.make_move(fr, fc, tr, tc)
-            if ok:
-                move_str = f"{mover}@({fr},{fc})->({tr},{tc})"
-                self.game_board.move_history.append(move_str)
-                self.moves_listbox.insert(tk.END, convert_move_to_algebraic(move_str))
-                self.update_evaluation()
-                self.draw_board()
-                self.update_status()
-                print("-----")
-                print("New evaluation after black move:")
-                print(evaluation_breakdown(self.game_board))
-                print()
-                if self.game_board.is_game_over():
-                    messagebox.showinfo("Game Over", f"Winner: {self.game_board.winner}")
-        elif self.mode==3:
-            if self.game_board.is_game_over():
-                return
-            depth=4
-            mv = iterative_deepening_decision(self.game_board, max_depth=depth, max_time=10)
-            if mv is None:
-                return
-            (fr, fc, tr, tc) = mv
-            mover = self.game_board.board[fr][fc]
-            ok = self.game_board.make_move(fr, fc, tr, tc)
-            if ok:
-                move_str = f"{mover}@({fr},{fc})->({tr},{tc})"
-                self.game_board.move_history.append(move_str)
-                self.moves_listbox.insert(tk.END, convert_move_to_algebraic(move_str))
-                self.update_evaluation()
-                self.draw_board()
-                self.update_status()
-                print("-----")
-                if self.game_board.turn_white:
-                    print("New evaluation after move of black:")
-                else:
-                    print("New evaluation after move of white:")
-                print(evaluation_breakdown(self.game_board))
-                print()
-                if not self.game_board.is_game_over():
-                    self.root.after(200, self.ai_move)
+            messagebox.showerror("Error", f"Errore caricamento:\n{e}")
