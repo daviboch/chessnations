@@ -65,11 +65,11 @@ def find_king(bstate, white):
                 return (rr, cc)
     return (None, None)
 
-
-# Coordinatore dei movimenti (pseudo-legali) di tutti i pezzi:
-# chiama le funzioni giuste in base al tipo di pezzo.
+# --------------------------------------------------------------------------
+# Import delle funzioni di movimento "classico" e "nativo" (senza abilità speciali).
+# --------------------------------------------------------------------------
 from .classic_piece_movement import (
-    get_pawn_moves,   # Pawn bianco/nero
+    get_pawn_moves,
     get_rook_moves,
     get_knight_moves,
     get_bishop_moves,
@@ -77,17 +77,59 @@ from .classic_piece_movement import (
     get_king_moves
 )
 from .native_piece_movement import (
-    get_totem_moves,
+    get_totem_moves,  # Non più usato direttamente, ma lasciato per compatibilità
     get_bison_moves,
     get_shaman_moves
 )
 
-def get_all_pseudo_moves_for_square(board, turn_white, r, c):
+# Piccolo dispatcher per “potere ereditato” base (senza abilità speciali).
+def get_inherited_moves_basic(board, r, c, piece_class: str):
+    """
+    Ritorna le mosse "base" del pezzo indicato da piece_class.
+    Non includiamo abilità extra come freeze, push, etc.
+    """
+    if piece_class == "KNIGHT":
+        return get_knight_moves(board, r, c)
+    elif piece_class == "BISHOP":
+        return get_bishop_moves(board, r, c)
+    elif piece_class == "ROOK":
+        return get_rook_moves(board, r, c)
+    elif piece_class == "KING":
+        # Se ereditato = KING, di fatto è un duplicato del re. 
+        # Potremmo aggiungere, ma TOTEM già si muove come Re,
+        # quindi potrebbe diventare solo un allargamento di scelte?
+        return get_king_moves(board, r, c)
+    elif piece_class == "SHAMAN":
+        # "base" => consideriamo come un "mini-bishop a 2 passi" (es. get_shaman_moves),
+        # ma se vogliamo evitare freeze/salto speciale potremmo simulare un bishop.
+        # Per semplicità, usiamo la funzione "get_shaman_moves" pura
+        # (che fa salti diagonali di 2) ma NON c'è freeze qui
+        return get_shaman_moves(board, r, c)
+    elif piece_class == "BISON":
+        # Il Bison "puro" muove come una Rook + diagonali con "richiamo"
+        # ma con push del pedone. Se non vogliamo la push e la "richiamo",
+        # potremmo ridurlo a get_rook_moves. Oppure usiamo get_bison_moves
+        # se vogliamo la parte di diagonale? 
+        # Per non perdere del tutto la "forma" bison, useremo get_bison_moves,
+        # ma occhio che in 'moves.py' la push si realizza in _apply_bison_move.
+        # In questa sede, restituisce la geometria (Rook + eventuale diagonale).
+        # Non scatena freeze, né logiche extra. Va bene.
+        return get_bison_moves(board, r, c)
+    elif piece_class == "TOTEM":
+        # In caso un TOTEM catturi un TOTEM, e "erediti TOTEM"? 
+        # Attualmente era un Re "allungato". Ora è ridotto a Re base.
+        # Usiamo get_king_moves come fallback.
+        return get_king_moves(board, r, c)
+    return []
+
+def get_all_pseudo_moves_for_square(board_obj, turn_white, r, c):
     """
     Ritorna TUTTE le mosse pseudo-legali di un pezzo in (r,c),
-    basate sui pattern di movimento e cattura, senza controllo dello scacco.
+    basate sui pattern di movimento e cattura, ma SENZA considerare
+    lo scacco al proprio Re (questo controllo avverrà dopo).
+    Adesso accettiamo board_obj per poter gestire il TOTEM ereditato.
     """
-    p = board[r][c]
+    p = board_obj.board[r][c]
     if p == EMPTY:
         return []
     # Controllo colore
@@ -96,23 +138,43 @@ def get_all_pseudo_moves_for_square(board, turn_white, r, c):
     if (not turn_white) and not is_black_piece(p):
         return []
 
-    if p in (WHITE_PAWN, BLACK_PAWN):
-        return get_pawn_moves(board, r, c)
-    elif p in (WHITE_ROOK, BLACK_ROOK):
-        return get_rook_moves(board, r, c)
-    elif p in (WHITE_BISON, BLACK_BISON):
-        return get_bison_moves(board, r, c)
-    elif p in (WHITE_KNIGHT, BLACK_KNIGHT):
-        return get_knight_moves(board, r, c)
-    elif p in (WHITE_BISHOP, BLACK_BISHOP):
-        return get_bishop_moves(board, r, c)
-    elif p in (WHITE_SHAMAN, BLACK_SHAMAN):
-        return get_shaman_moves(board, r, c)
-    elif p in (WHITE_QUEEN, BLACK_QUEEN):
-        return get_queen_moves(board, r, c)
-    elif p in (WHITE_KING, BLACK_KING):
-        return get_king_moves(board, r, c)
-    elif p in (WHITE_TOTEM, BLACK_TOTEM):
-        return get_totem_moves(board, r, c)
+    # 1) Gestione TOTEM con potere ereditato
+    if p in (WHITE_TOTEM, BLACK_TOTEM):
+        moves = []
+        # a) Movimento base da Re
+        moves += get_king_moves(board_obj.board, r, c)
 
+        # b) Se c’è un potere ereditato, aggiungiamo quella geometria.
+        if is_white_piece(p):
+            inherited = board_obj.white_totem_inherited
+        else:
+            inherited = board_obj.black_totem_inherited
+
+        if inherited is not None:
+            inherited_moves = get_inherited_moves_basic(board_obj.board, r, c, inherited)
+            # Uniamo le mosse, evitando duplicati
+            # (in certi casi potremmo unire tranquillamente, oppure usare set)
+            all_set = set(moves + inherited_moves)
+            moves = list(all_set)
+
+        return moves
+
+    # 2) Altrimenti seguiamo la normale logica per gli altri pezzi
+    if p in (WHITE_PAWN, BLACK_PAWN):
+        return get_pawn_moves(board_obj.board, r, c)
+    elif p in (WHITE_ROOK, BLACK_ROOK):
+        return get_rook_moves(board_obj.board, r, c)
+    elif p in (WHITE_BISON, BLACK_BISON):
+        return get_bison_moves(board_obj.board, r, c)
+    elif p in (WHITE_KNIGHT, BLACK_KNIGHT):
+        return get_knight_moves(board_obj.board, r, c)
+    elif p in (WHITE_BISHOP, BLACK_BISHOP):
+        return get_bishop_moves(board_obj.board, r, c)
+    elif p in (WHITE_SHAMAN, BLACK_SHAMAN):
+        return get_shaman_moves(board_obj.board, r, c)
+    elif p in (WHITE_QUEEN, BLACK_QUEEN):
+        return get_queen_moves(board_obj.board, r, c)
+    elif p in (WHITE_KING, BLACK_KING):
+        return get_king_moves(board_obj.board, r, c)
+    # TOTEM era già gestito sopra
     return []

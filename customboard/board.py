@@ -80,6 +80,10 @@ class CustomBoard:
         self.black_left_rook_moved = False
         self.black_right_rook_moved = False
 
+        # Nuovi campi per gestire l'eredità dei Totem
+        self.white_totem_inherited = None
+        self.black_totem_inherited = None
+
         # Inizializza la scacchiera
         _setup_initial_board(self)
 
@@ -89,7 +93,6 @@ class CustomBoard:
     def is_game_over(self):
         """
         Ritorna True se la partita risulta terminata (matto o patta).
-        Prima era is_game_over() in board_state.py.
         """
         from .moves import is_game_over
         return is_game_over(self)
@@ -97,7 +100,6 @@ class CustomBoard:
     def get_winner(self):
         """
         Ritorna il vincitore ("White", "Black" o "Draw"), oppure None se la partita non è finita.
-        Prima era get_winner() in board_state.py.
         """
         from .moves import get_winner
         return get_winner(self)
@@ -105,7 +107,6 @@ class CustomBoard:
     def is_in_check(self, white=True):
         """
         Restituisce True se il Re bianco/nero è sotto scacco.
-        Prima era definito in board_state.py, poi richiamato da board_main.py.
         """
         from .moves import is_in_check
         return is_in_check(self, white)
@@ -116,7 +117,6 @@ class CustomBoard:
     def can_move_piece(self, piece):
         """
         Controlla se 'piece' è muovibile in base al turno.
-        Prima era in board_moves.py (funzione can_move_piece).
         """
         from .moves import can_move_piece
         return can_move_piece(self, piece)
@@ -124,7 +124,6 @@ class CustomBoard:
     def get_all_legal_moves(self, white=True):
         """
         Ritorna tutte le mosse legali per il colore specificato.
-        Prima era get_all_legal_moves in board_moves.py.
         """
         from .moves import get_all_legal_moves
         return get_all_legal_moves(self, white)
@@ -132,7 +131,6 @@ class CustomBoard:
     def get_legal_moves_for_square(self, r, c):
         """
         Ritorna tutte le mosse legali di un pezzo in (r, c).
-        Prima in board_moves.py.
         """
         from .moves import get_legal_moves_for_square
         return get_legal_moves_for_square(self, r, c)
@@ -140,7 +138,6 @@ class CustomBoard:
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """
         Esegue una mossa se è valida, e aggiorna lo stato (move_history, fine partita, ecc.).
-        Prima era in board_moves.py.
         """
         from .moves import make_move
         return make_move(self, fr, fc, tr, tc, promotion_piece)
@@ -148,7 +145,6 @@ class CustomBoard:
     def make_move_in_place(self, fr, fc, tr, tc, promotion_piece=None):
         """
         Variante in-place della mossa, usata ad esempio dall'IA e per i controlli di scacco.
-        Prima in board_moves.py.
         """
         from .moves import make_move_in_place
         return make_move_in_place(self, fr, fc, tr, tc, promotion_piece)
@@ -156,7 +152,6 @@ class CustomBoard:
     def undo_move_in_place(self, move_info):
         """
         Annulla l'ultima mossa, usando i dati salvati in move_info.
-        Prima era in board_moves.py.
         """
         from .moves import undo_move_in_place
         return undo_move_in_place(self, move_info)

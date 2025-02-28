@@ -377,6 +377,17 @@ class ChessApp:
                 f.write(f"BLACK_LEFT_ROOK_MOVED:{self.game_board.black_left_rook_moved}\n")
                 f.write(f"BLACK_RIGHT_ROOK_MOVED:{self.game_board.black_right_rook_moved}\n")
 
+                # Salva i poteri ereditati
+                if self.game_board.white_totem_inherited is None:
+                    f.write("WHITE_TOTEM_INHERITED:NONE\n")
+                else:
+                    f.write(f"WHITE_TOTEM_INHERITED:{self.game_board.white_totem_inherited}\n")
+
+                if self.game_board.black_totem_inherited is None:
+                    f.write("BLACK_TOTEM_INHERITED:NONE\n")
+                else:
+                    f.write(f"BLACK_TOTEM_INHERITED:{self.game_board.black_totem_inherited}\n")
+
                 # Move history
                 f.write("MOVE_HISTORY:\n")
                 for move_item in self.game_board.move_history:
@@ -489,6 +500,24 @@ class ChessApp:
                 brrm = parse_bool(lines[idx], "BLACK_RIGHT_ROOK_MOVED")
                 if brrm is None: return
                 new_board.black_right_rook_moved = brrm
+                idx+=1
+
+            # WHITE_TOTEM_INHERITED
+            if idx<len(lines) and lines[idx].startswith("WHITE_TOTEM_INHERITED:"):
+                wti_str = lines[idx].split(":",1)[1].strip()
+                if wti_str == "NONE":
+                    new_board.white_totem_inherited = None
+                else:
+                    new_board.white_totem_inherited = wti_str
+                idx+=1
+
+            # BLACK_TOTEM_INHERITED
+            if idx<len(lines) and lines[idx].startswith("BLACK_TOTEM_INHERITED:"):
+                bti_str = lines[idx].split(":",1)[1].strip()
+                if bti_str == "NONE":
+                    new_board.black_totem_inherited = None
+                else:
+                    new_board.black_totem_inherited = bti_str
                 idx+=1
 
             # MOVE_HISTORY:

@@ -47,17 +47,22 @@ def get_totem_moves(board, r, c):
                 break
     return moves
 
+
 def get_bison_moves(board, r, c):
     """
-    Bisonte: muove come una Rook (verticale/orizzontale), fermandosi se incontra un pezzo.
-    Se il pezzo incontrato è un pedone avversario, tenta di spingerlo avanti di 1 (se c’è spazio);
-    altrimenti, cattura come una Rook standard (se è un pezzo diverso dal pedone).
-    (La spinta vera e propria avviene altrove, ma qui la generazione pseudo-legale è simile alla Rook.)
+    Bisonte (versione "nativi"):
+    - Muove come una Rook (verticale/orizzontale), fermandosi se incontra un pezzo.
+    - Se incontra un pedone avversario, lo "spinge" (vedi moves.py).
+    - [Nuova Regola] "Richiamo dello Sciamano": se su una diagonale libera
+      (nessun pezzo in mezzo) c'è uno Sciamano amico, il Bisonte può muoversi
+      in quella diagonale come un Alfiere (fino a blocco).
     """
     p = board[r][c]
     out = []
-    dirs = [(1,0), (-1,0), (0,1), (0,-1)]
-    for (dr, dc) in dirs:
+
+    # (1) Movimenti base (stile Rook), come prima
+    dirs_rook = [(1,0), (-1,0), (0,1), (0,-1)]
+    for (dr, dc) in dirs_rook:
         rr, cc = r, c
         while True:
             rr += dr
@@ -67,12 +72,54 @@ def get_bison_moves(board, r, c):
             out.append((rr, cc))
             if board[rr][cc] != EMPTY:
                 break
+
+    # (2) Richiamo dello Sciamano: se c'è uno Sciamano amico su una diagonale
+    #     e nessun pezzo in mezzo, muove come un Alfiere su quella diagonale.
+    #     Cerchiamo in ognuna delle 4 diagonali se esiste uno Sciamano amico.
+
+    my_is_white = is_white_piece(p)
+    # Cerchiamo TOTTI i possibili "shaman" in diagonale: se ne troviamo almeno uno, sblocchiamo la diagonale
+    # Metodo: per ogni diagonale, facciamo una scansione passo-passo:
+    dirs_diag = [(1,1), (1,-1), (-1,1), (-1,-1)]
+    for (dr, dc) in dirs_diag:
+        rr, cc = r, c
+        found_shaman_same_color = False
+        path_clear = True
+        while True:
+            rr += dr
+            cc += dc
+            if not in_bounds(rr, cc):
+                break
+            occupant = board[rr][cc]
+            if occupant != EMPTY:
+                # Se troviamo un pezzo
+                if (my_is_white and occupant == WHITE_SHAMAN) or ((not my_is_white) and occupant == BLACK_SHAMAN):
+                    # Sciamano amico trovato => sblocco la diagonale
+                    found_shaman_same_color = True
+                else:
+                    # Bloccato da un altro pezzo (o sciamano avversario)
+                    path_clear = False
+                break
+        # Se found_shaman_same_color = True => quella diagonale è "sbloccata"
+        if found_shaman_same_color and path_clear:
+            # Ora aggiungiamo le mosse stile Alfiere (finché non troviamo un pezzo)
+            rr2, cc2 = r, c
+            while True:
+                rr2 += dr
+                cc2 += dc
+                if not in_bounds(rr2, cc2):
+                    break
+                out.append((rr2, cc2))
+                if board[rr2][cc2] != EMPTY:
+                    break
+
     return out
+
 
 def get_shaman_moves(board, r, c):
     """
     Shaman: max due caselle in diagonale. Se la prima è vuota, “salta” alla seconda.
-    Rimosso il blocco dei cavalli/bisoni avversari (la cattura funziona come un Bishop corto).
+    La cattura funziona come un Bishop "corto".
     """
     p = board[r][c]
     out = []
