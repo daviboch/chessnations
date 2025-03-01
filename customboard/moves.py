@@ -15,6 +15,8 @@ from piece_movement.piece_movement_common import (
     in_bounds, get_all_pseudo_moves_for_square
 )
 
+from piece_movement.piece_attacks import is_square_attacked  # usa la versione aggiornata
+
 # -------------------------------------------------------
 # Sezione "Arrocco" (ex board_castling.py)
 # -------------------------------------------------------
@@ -229,14 +231,6 @@ def black_castle_long_inplace_nativi(board_obj):
 # -------------------------------------------------------
 # Sezione "board_state.py" (scacco, patta, vincitore)
 # -------------------------------------------------------
-from piece_movement.piece_attacks import is_square_attacked
-
-def is_in_check(board_obj, white=True):
-    kr, kc = find_king_position(board_obj, white)
-    if kr is None:
-        return False
-    return is_square_attacked(board_obj.board, kr, kc, by_white=(not white))
-
 def find_king_position(board_obj, white):
     king = WHITE_KING if white else BLACK_KING
     for rr in range(BOARD_SIZE):
@@ -244,6 +238,13 @@ def find_king_position(board_obj, white):
             if board_obj.board[rr][cc] == king:
                 return (rr, cc)
     return (None, None)
+
+def is_in_check(board_obj, white=True):
+    kr, kc = find_king_position(board_obj, white)
+    if kr is None:
+        return False
+    # (MODIFICA QUI) --> passiamo board_obj, non board_obj.board
+    return is_square_attacked(board_obj, kr, kc, by_white=(not white))
 
 def is_game_over(board_obj):
     return board_obj.game_over
@@ -265,18 +266,15 @@ def is_piece_frozen_by_enemy_shaman(board_obj, r, c):
     c'è uno Sciamano nemico.
     """
     p = board_obj.board[r][c]
-    # Se non è un Cavallo/Bisonte, non è soggetto a freeze
     if not is_animal(p):
         return False
 
     my_color_is_white = is_white_piece(p)
-    # Controlliamo le 4 caselle intorno
     for (dr, dc) in [(-1,0),(1,0),(0,-1),(0,1)]:
         rr = r + dr
         cc = c + dc
         if in_bounds(rr, cc):
             occupant = board_obj.board[rr][cc]
-            # Se p è bianco, occupant deve essere black_shaman, e viceversa
             if my_color_is_white:
                 if occupant == BLACK_SHAMAN:
                     return True
@@ -320,8 +318,7 @@ def get_legal_moves_for_square(board_obj, r, c):
     if not can_move_piece(board_obj, p):
         return []
 
-    # [SHAMAN FREEZE RULE] Se il pezzo è un “animale” e
-    # c'è uno Sciamano nemico adiacente => nessuna mossa
+    # [SHAMAN FREEZE RULE]
     if is_piece_frozen_by_enemy_shaman(board_obj, r, c):
         return []
 
@@ -331,10 +328,9 @@ def get_legal_moves_for_square(board_obj, r, c):
         if not does_move_leave_king_in_check(board_obj, r, c, rr, cc):
             real_moves.append((rr, cc))
 
-    # Arrocco (classici / nativi) – invariato
+    # Arrocco (classici / nativi)
     if p == WHITE_KING and board_obj.white_faction == "classici" and board_obj.turn_white \
        and not board_obj.white_king_moved and (r, c) == (7, 4):
-        # corto => (7,6)
         if (not board_obj.white_right_rook_moved) \
            and board_obj.board[7][5] == EMPTY and board_obj.board[7][6] == EMPTY \
            and board_obj.board[7][7] == WHITE_ROOK \
@@ -342,7 +338,6 @@ def get_legal_moves_for_square(board_obj, r, c):
            and (not does_move_leave_king_in_check(board_obj, 7,4,7,5)) \
            and (not does_move_leave_king_in_check(board_obj, 7,4,7,6)):
             real_moves.append((7, 6))
-        # lungo => (7,2)
         if (not board_obj.white_left_rook_moved) \
            and (board_obj.board[7][1] == EMPTY and board_obj.board[7][2] == EMPTY and board_obj.board[7][3] == EMPTY) \
            and board_obj.board[7][0] == WHITE_ROOK \
@@ -353,7 +348,6 @@ def get_legal_moves_for_square(board_obj, r, c):
 
     if p == BLACK_KING and board_obj.black_faction == "classici" and (not board_obj.turn_white) \
        and not board_obj.black_king_moved and (r, c) == (0, 4):
-        # corto => (0,6)
         if (not board_obj.black_right_rook_moved) \
            and board_obj.board[0][5] == EMPTY and board_obj.board[0][6] == EMPTY \
            and board_obj.board[0][7] == BLACK_ROOK \
@@ -361,7 +355,6 @@ def get_legal_moves_for_square(board_obj, r, c):
            and (not does_move_leave_king_in_check(board_obj, 0,4,0,5)) \
            and (not does_move_leave_king_in_check(board_obj, 0,4,0,6)):
             real_moves.append((0, 6))
-        # lungo => (0,2)
         if (not board_obj.black_left_rook_moved) \
            and (board_obj.board[0][1] == EMPTY and board_obj.board[0][2] == EMPTY and board_obj.board[0][3] == EMPTY) \
            and board_obj.board[0][0] == BLACK_ROOK \
@@ -372,7 +365,6 @@ def get_legal_moves_for_square(board_obj, r, c):
 
     if p == WHITE_KING and board_obj.white_faction == "nativi" and board_obj.turn_white \
        and not board_obj.white_king_moved and (r, c) == (7, 4):
-        # corto => (7,6)
         if (not board_obj.white_right_rook_moved) \
            and board_obj.board[7][5] == EMPTY and board_obj.board[7][6] == EMPTY \
            and board_obj.board[7][7] == WHITE_TOTEM \
@@ -380,7 +372,6 @@ def get_legal_moves_for_square(board_obj, r, c):
            and (not does_move_leave_king_in_check(board_obj, 7,4,7,5)) \
            and (not does_move_leave_king_in_check(board_obj, 7,4,7,6)):
             real_moves.append((7, 6))
-        # lungo => (7,2)
         if (not board_obj.white_left_rook_moved) \
            and (board_obj.board[7][1] == EMPTY and board_obj.board[7][2] == EMPTY and board_obj.board[7][3] == EMPTY) \
            and board_obj.board[7][0] == WHITE_TOTEM \
@@ -391,7 +382,6 @@ def get_legal_moves_for_square(board_obj, r, c):
 
     if p == BLACK_KING and board_obj.black_faction == "nativi" and (not board_obj.turn_white) \
        and not board_obj.black_king_moved and (r, c) == (0, 4):
-        # corto => (0,6)
         if (not board_obj.black_right_rook_moved) \
            and board_obj.board[0][5] == EMPTY and board_obj.board[0][6] == EMPTY \
            and board_obj.board[0][7] == BLACK_TOTEM \
@@ -399,7 +389,6 @@ def get_legal_moves_for_square(board_obj, r, c):
            and (not does_move_leave_king_in_check(board_obj, 0,4,0,5)) \
            and (not does_move_leave_king_in_check(board_obj, 0,4,0,6)):
             real_moves.append((0, 6))
-        # lungo => (0,2)
         if (not board_obj.black_left_rook_moved) \
            and (board_obj.board[0][1] == EMPTY and board_obj.board[0][2] == EMPTY and board_obj.board[0][3] == EMPTY) \
            and board_obj.board[0][0] == BLACK_TOTEM \
@@ -431,7 +420,6 @@ def make_move(board_obj, fr, fc, tr, tc, promotion_piece=None):
     check_end_of_game(board_obj)
     return True
 
-# Mappa dei pezzi verso la "classe di movimento" (senza abilità speciali).
 piece_class_map = {
     WHITE_ROOK:   "ROOK",
     BLACK_ROOK:   "ROOK",
@@ -441,11 +429,11 @@ piece_class_map = {
     BLACK_KNIGHT: "KNIGHT",
     WHITE_KING:   "KING",
     BLACK_KING:   "KING",
-    WHITE_SHAMAN: "SHAMAN",  # inteso come movimento base (senza freeze)
+    WHITE_SHAMAN: "SHAMAN",
     BLACK_SHAMAN: "SHAMAN",
-    WHITE_BISON:  "BISON",   # inteso come base rook/diagonali, no push
+    WHITE_BISON:  "BISON",
     BLACK_BISON:  "BISON",
-    WHITE_TOTEM:  "TOTEM",   # se mai fosse catturato un totem, magari lo re-inseriamo
+    WHITE_TOTEM:  "TOTEM",
     BLACK_TOTEM:  "TOTEM"
 }
 
@@ -458,7 +446,6 @@ def make_move_in_place(board_obj, fr, fc, tr, tc, promotion_piece=None):
     if not can_move_piece(board_obj, mover):
         return move_info
 
-    # Salvataggi per UNDO
     move_info["board_before"] = [row[:] for row in board_obj.board]
     move_info["white_king_moved"] = board_obj.white_king_moved
     move_info["white_left_rook_moved"] = board_obj.white_left_rook_moved
@@ -467,7 +454,6 @@ def make_move_in_place(board_obj, fr, fc, tr, tc, promotion_piece=None):
     move_info["black_left_rook_moved"] = board_obj.black_left_rook_moved
     move_info["black_right_rook_moved"] = board_obj.black_right_rook_moved
 
-    # Salvataggio nuovi campi totem
     move_info["white_totem_inherited"] = board_obj.white_totem_inherited
     move_info["black_totem_inherited"] = board_obj.black_totem_inherited
 
@@ -495,7 +481,6 @@ def undo_move_in_place(board_obj, move_info):
     board_obj.black_left_rook_moved = move_info["black_left_rook_moved"]
     board_obj.black_right_rook_moved = move_info["black_right_rook_moved"]
 
-    # Ripristino nuovi campi
     board_obj.white_totem_inherited = move_info["white_totem_inherited"]
     board_obj.black_totem_inherited = move_info["black_totem_inherited"]
 
@@ -556,7 +541,6 @@ def _apply_normal_move(board_obj, fr, fc, tr, tc, promotion_piece):
             return False
         board_obj.board[tr][tc] = WHITE_QUEEN
         board_obj.board[fr][fc] = EMPTY
-        # Check cattura Totem? -> no, stiamo già facendo occupant, ma se occupant era totem no problem
         _check_inherit_power(board_obj, mover, occupant)
         return True
     if mover == BLACK_PAWN and tr == 7:
@@ -573,20 +557,15 @@ def _apply_normal_move(board_obj, fr, fc, tr, tc, promotion_piece):
 
     # Cattura standard
     if occupant != EMPTY:
-        # se occupant è dello stesso colore => mossa illegale
         if is_white_piece(mover) == is_white_piece(occupant):
             return False
-        # vieta la cattura se occupant è un Bison e mover è un pedone
         if occupant in (WHITE_BISON, BLACK_BISON) and mover in (WHITE_PAWN, BLACK_PAWN):
             return False
 
-    # spostamento standard
     board_obj.board[tr][tc] = mover
     board_obj.board[fr][fc] = EMPTY
 
-    # Controllo eventuale eredità potere Totem
     _check_inherit_power(board_obj, mover, occupant)
-
     return True
 
 def _apply_bison_move(board_obj, fr, fc, tr, tc):
@@ -597,14 +576,10 @@ def _apply_bison_move(board_obj, fr, fc, tr, tc):
     if occupant == EMPTY:
         board_obj.board[tr][tc] = bison
     else:
-        # Se occupant è stesso colore => illegal
         if is_white_piece(bison) == is_white_piece(occupant):
             board_obj.board[fr][fc] = bison
             return False
-        # occupant è avversario
-
         if occupant in (WHITE_PAWN, BLACK_PAWN):
-            # spinta del pedone
             dr = tr - fr
             dc = tc - fc
             if dr != 0:
@@ -617,16 +592,12 @@ def _apply_bison_move(board_obj, fr, fc, tr, tc):
                 board_obj.board[push_r][push_c] = occupant
                 board_obj.board[tr][tc] = bison
             else:
-                # revert
                 board_obj.board[fr][fc] = bison
                 return False
         else:
-            # cattura diretta
             board_obj.board[tr][tc] = bison
 
-    # Controllo eredità (cattura) dopo aver spostato il bisonte
     _check_inherit_power(board_obj, bison, occupant)
-
     return True
 
 def does_move_leave_king_in_check(board_obj, fr, fc, tr, tc):
@@ -651,7 +622,6 @@ def check_end_of_game(board_obj):
         return
     moves = get_all_legal_moves(board_obj, board_obj.turn_white)
     if not moves:
-        # patta o matto
         if is_in_check(board_obj, board_obj.turn_white):
             board_obj.game_over = True
             board_obj.winner = "Black" if board_obj.turn_white else "White"
@@ -660,18 +630,11 @@ def check_end_of_game(board_obj):
             board_obj.winner = "Draw"
 
 def _check_inherit_power(board_obj, mover, occupant):
-    """
-    Se 'occupant' era un pezzo nemico (non pedone, non regina),
-    aggiorna l'eredità del Totem di chi ha catturato.
-    """
     if occupant in (WHITE_PAWN, BLACK_PAWN, WHITE_QUEEN, BLACK_QUEEN, EMPTY):
         return
-    # occupant è un pezzo catturato di tipo "significativo"
     if is_white_piece(mover):
-        # il catturante è bianco
         if occupant in piece_class_map:
             board_obj.white_totem_inherited = piece_class_map[occupant]
     else:
-        # il catturante è nero
         if occupant in piece_class_map:
             board_obj.black_totem_inherited = piece_class_map[occupant]
