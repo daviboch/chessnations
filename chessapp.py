@@ -1,7 +1,5 @@
-# chessapp.py
-
 import tkinter as tk
-from tkinter import messagebox, filedialog, simpledialog
+from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
 import os, random, time
 
@@ -40,8 +38,8 @@ from piece_movement.piece_movement_common import (
 ###############################################################################
 # Configurazioni grafiche
 ###############################################################################
-CELL_SIZE = 100
-MARGIN = 30
+CELL_SIZE = 60
+MARGIN = 20
 
 # Colore della casella di partenza dell'ultima mossa
 HIGHLIGHT_COLOR = "#f7f79a"
@@ -52,7 +50,6 @@ DARK_COLOR  = "#b58863"
 
 # Fattore di ingrandimento pezzo sulla casella di arrivo
 SCALE_FACTOR = 1.18
-
 
 ###############################################################################
 # Funzioni di conversione mosse
@@ -105,11 +102,6 @@ def convert_move_to_algebraic_detailed(move: tuple, board_before: CustomBoard) -
     piece_str = PIECE_NAME_MAP.get(mover, str(mover))
     return f"{piece_str} from {start} to {dest}"
 
-
-###########################################
-# ROBA UTILE PER LE FINESTRE DI DIALOGO
-###########################################
-
 def ask_option_dialog(parent, title, prompt, options):
     """
     Mostra una finestra di dialogo con:
@@ -121,14 +113,13 @@ def ask_option_dialog(parent, title, prompt, options):
     dialog = tk.Toplevel(parent)
     dialog.title(title)
 
-    # Impostiamo la finestra come transiente e in primo piano
-    dialog.transient(parent)            # la finestra segue parent
-    dialog.grab_set()                   # modalità 'grab' => l'utente non può cliccare altrove
-    dialog.attributes("-topmost", True) # forza la finestra in primo piano
-    dialog.lift()                       # alziamo sopra tutte le altre
+    dialog.transient(parent)            
+    dialog.grab_set()                  
+    dialog.attributes("-topmost", True)
+    dialog.lift()                      
 
     var_choice = tk.StringVar(dialog)
-    var_choice.set(options[0])  # di default la prima opzione
+    var_choice.set(options[0])  
 
     label = tk.Label(dialog, text=prompt, font=("Helvetica", 14))
     label.pack(padx=10, pady=10)
@@ -143,10 +134,7 @@ def ask_option_dialog(parent, title, prompt, options):
     btn_ok = tk.Button(dialog, text="OK", font=("Helvetica", 14), command=on_ok)
     btn_ok.pack(pady=10)
 
-    # Forziamo il focus sulla finestra di dialogo
     dialog.focus_force()
-
-    # attendiamo che la finestra si chiuda
     parent.wait_window(dialog)
 
     return var_choice.get()
@@ -174,7 +162,7 @@ class ChessApp:
         self.evaluation_label = tk.Label(self.root, text="", font=("Helvetica",14), fg="black")
         self.evaluation_label.grid(row=10, column=0, sticky="w", padx=10)
 
-        self.moves_listbox = tk.Listbox(self.root, width=30, height=53)
+        self.moves_listbox = tk.Listbox(self.root, width=30, height=30)
         self.moves_listbox.grid(row=0, column=1, rowspan=8, padx=10)
 
         self.newgame_button = tk.Button(self.root, text="New Game", command=self.new_game)
@@ -189,15 +177,13 @@ class ChessApp:
         self.loadpos_button = tk.Button(self.root, text="Load Position", command=self.load_position)
         self.loadpos_button.grid(row=11, column=1, pady=2)
 
-        # Per evidenziare ultima mossa
         self.last_move_from = None
         self.last_move_to = None
-
         self.selected_square = None
         self.game_board = None
         self.mode = None
 
-        # Dizionari di immagini (trasparenti!)
+        # Dizionari di immagini (pezzi in dimensioni normale e ingrandita)
         self.piece_images_normal = {}
         self.piece_images_enlarged = {}
 
@@ -206,7 +192,6 @@ class ChessApp:
     def setup_new_game(self):
         TRANSPOSITION_TABLE.clear()
 
-        # Selezione fazione bianchi (combo)
         faction_bianchi = ask_option_dialog(
             self.root,
             "Fazione Bianchi",
@@ -218,7 +203,6 @@ class ChessApp:
         else:
             white_faction = "nativi"
 
-        # Selezione fazione neri (combo)
         faction_neri = ask_option_dialog(
             self.root,
             "Fazione Neri",
@@ -230,7 +214,6 @@ class ChessApp:
         else:
             black_faction = "nativi"
 
-        # Creiamo la scacchiera
         self.game_board = CustomBoard(white_faction=white_faction, black_faction=black_faction)
         random.seed(time.time())
         self.game_board.game_noise_seed = random.randint(0, 1000000)
@@ -240,7 +223,6 @@ class ChessApp:
         self.last_move_from = None
         self.last_move_to = None
 
-        # Selezione modalità (combo)
         mode_str = ask_option_dialog(
             self.root,
             "Modalità di gioco",
@@ -261,6 +243,9 @@ class ChessApp:
         self.draw_board()
         self.canvas.bind("<Button-1>", self.on_click)
 
+        self.moves_listbox.delete(0, tk.END)
+        self.update_evaluation()
+
         # Avvio dell'AI se necessario
         if self.mode == 2 and not self.game_board.turn_white:
             self.root.after(200, self.ai_move)
@@ -273,7 +258,7 @@ class ChessApp:
     def load_piece_images(self):
         """
         Carica le immagini dei pezzi in due dimensioni (normale e ingrandita),
-        SENZA composizione con sfondo, così da mantenere la trasparenza attorno al pezzo.
+        mantenendo la trasparenza attorno al pezzo.
         """
         piece_filenames = {
             WHITE_PAWN:   "wpawn.png",
@@ -301,15 +286,10 @@ class ChessApp:
         for p, filename in piece_filenames.items():
             try:
                 img_path = f"images/{filename}"
-                from PIL import Image
                 base_img = Image.open(img_path).convert("RGBA")
-
-                # Ridimensioniamo a 60x60 (normale)
                 normal_img = base_img.resize((CELL_SIZE, CELL_SIZE), LANCZOS_FILTER)
-                # Ridimensioniamo a ~72x72 (ingrandita)
                 enlarged_img = base_img.resize((enlarged_size, enlarged_size), LANCZOS_FILTER)
 
-                from PIL import ImageTk
                 self.piece_images_normal[p] = ImageTk.PhotoImage(normal_img)
                 self.piece_images_enlarged[p] = ImageTk.PhotoImage(enlarged_img)
 
@@ -318,23 +298,18 @@ class ChessApp:
 
     def draw_board(self):
         """
-        Disegno della scacchiera:
-         - Cella di partenza ultima mossa => giallina
-         - Cella di arrivo => pezzo ingrandito
-         - Altre celle => normali
-         - Lo sfondo è sempre colorato da un rettangolo, 
-           e poi ci appoggiamo il pezzo con trasparenza.
+        Disegna la scacchiera e i pezzi:
+         - Casella di partenza dell'ultima mossa in giallo
+         - Casella di arrivo con pezzo ingrandito
         """
         self.canvas.delete("all")
 
-        # 1) Celle
+        # Disegno celle
         for r in range(8):
             for c in range(8):
-                # Se è la cella di partenza, giallino
                 if (r, c) == self.last_move_from:
                     color = HIGHLIGHT_COLOR
                 else:
-                    # Base chiaro/scuro
                     color = LIGHT_COLOR if (r + c) % 2 == 0 else DARK_COLOR
 
                 x1 = MARGIN + c*CELL_SIZE
@@ -343,7 +318,7 @@ class ChessApp:
                 y2 = y1 + CELL_SIZE
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="")
 
-        # 2) Pezzi
+        # Disegno pezzi
         for r in range(8):
             for c in range(8):
                 piece = self.game_board.board[r][c]
@@ -352,27 +327,27 @@ class ChessApp:
 
                 if (r, c) == self.last_move_to:
                     # Usa versione ingrandita
-                    img = self.piece_images_enlarged.get(piece, None)
+                    img = self.piece_images_enlarged.get(piece)
                     if img:
                         enlarged_size = int(CELL_SIZE * SCALE_FACTOR)
                         offset_x = MARGIN + c*CELL_SIZE - (enlarged_size - CELL_SIZE)//2
                         offset_y = MARGIN + r*CELL_SIZE - (enlarged_size - CELL_SIZE)//2
                         self.canvas.create_image(offset_x, offset_y, image=img, anchor="nw")
                 else:
-                    # Versione normale
-                    img = self.piece_images_normal.get(piece, None)
+                    img = self.piece_images_normal.get(piece)
                     if img:
                         x1 = MARGIN + c*CELL_SIZE
                         y1 = MARGIN + r*CELL_SIZE
                         self.canvas.create_image(x1, y1, image=img, anchor="nw")
 
-        # 3) Coordinate file/rank
+        # Coordinate file/rank
         font_coords = ("Helvetica", 14, "bold")
         for cc in range(8):
             file_label = chr(ord('a') + cc)
             x = MARGIN + cc * CELL_SIZE + CELL_SIZE/2
             y = MARGIN + 8 * CELL_SIZE + 10
             self.canvas.create_text(x, y, text=file_label, font=font_coords)
+
         for rr in range(8):
             rank_label = 8 - rr
             x = MARGIN - 10
@@ -411,22 +386,38 @@ class ChessApp:
 
             mover = self.game_board.board[fr][fc]
             occupant = self.game_board.board[row][col]
+
             ok = self.game_board.make_move(fr, fc, row, col)
             self.selected_square = None
             if ok:
+                # Salviamo l'ultima mossa
                 move_str = f"{mover}@({fr},{fc})->({row},{col})"
                 self.last_move_from = (fr, fc)
                 self.last_move_to   = (row, col)
 
+                # Inseriamo la mossa nella Listbox con il suo testo algebrico
                 idx = self.moves_listbox.size()
-                self.moves_listbox.insert(tk.END, convert_move_to_algebraic(move_str))
-                if occupant != EMPTY:
-                    self.moves_listbox.itemconfig(idx, fg="red")
+                algebraic = convert_move_to_algebraic(move_str)
+                self.moves_listbox.insert(tk.END, algebraic)
 
-                #self.game_board.move_history.append(move_str) DUPLICATO
+                # Di default, se è una cattura la segniamo in rosso
+                color = "black"
+                if occupant != EMPTY:
+                    color = "red"
+
+                # Se ORA il re di chi deve muovere è in check, coloriamo in verde
+                if self.game_board.is_in_check(self.game_board.turn_white):
+                    color = "green"
+                    check_king_color = "White" if self.game_board.turn_white else "Black"
+                    self.status_label.config(text=f"CHECK! {check_king_color} King is in check.")
+                else:
+                    self.update_status()
+
+                # Applica il colore
+                self.moves_listbox.itemconfig(idx, fg=color)
+
                 self.draw_board()
                 self.update_evaluation()
-                self.update_status()
 
                 if self.game_board.is_game_over():
                     messagebox.showinfo("Game Over", f"Winner: {self.game_board.winner}")
@@ -442,7 +433,7 @@ class ChessApp:
         if self.game_board.is_game_over():
             return
 
-        mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=10)
+        mv = iterative_deepening_decision(self.game_board, max_depth=5, max_time=60)
         if mv is None:
             return
 
@@ -457,15 +448,27 @@ class ChessApp:
             self.last_move_to   = (tr, tc)
 
             idx = self.moves_listbox.size()
-            self.moves_listbox.insert(tk.END, convert_move_to_algebraic(move_str))
+            algebraic = convert_move_to_algebraic(move_str)
+            self.moves_listbox.insert(tk.END, algebraic)
+
+            # Di default, se è cattura => rosso
+            color = "black"
             if occupant != EMPTY:
-                self.moves_listbox.itemconfig(idx, fg="red")
+                color = "red"
+
+            # Controlliamo lo scacco sul colore che ora deve muovere
+            if self.game_board.is_in_check(self.game_board.turn_white):
+                color = "green"
+                check_king_color = "White" if self.game_board.turn_white else "Black"
+                self.status_label.config(text=f"CHECK! {check_king_color} King is in check.")
+            else:
+                self.update_status()
+
+            self.moves_listbox.itemconfig(idx, fg=color)
 
             self.game_board.move_history.append(move_str)
             self.update_evaluation()
             self.draw_board()
-            self.update_status()
-
             print("-----")
             if self.game_board.turn_white:
                 print("New evaluation after move of black:")
@@ -531,7 +534,6 @@ class ChessApp:
                 f.write(f"BLACK_LEFT_ROOK_MOVED:{self.game_board.black_left_rook_moved}\n")
                 f.write(f"BLACK_RIGHT_ROOK_MOVED:{self.game_board.black_right_rook_moved}\n")
 
-                # Eredità Totem
                 if self.game_board.white_totem_inherited is None:
                     f.write("WHITE_TOTEM_INHERITED:NONE\n")
                 else:
@@ -560,6 +562,7 @@ class ChessApp:
             if len(lines)<8:
                 messagebox.showerror("Error","File non valido o troppo corto.")
                 return
+            from customboard import CustomBoard
             new_board = CustomBoard()
             random.seed(time.time())
             new_board.game_noise_seed = random.randint(0,1000000)
@@ -676,7 +679,6 @@ class ChessApp:
             self.update_evaluation()
             self.update_status()
 
-            # Ricostruzione mosse
             self.moves_listbox.delete(0, tk.END)
             for mv in new_board.move_history:
                 self.moves_listbox.insert(tk.END, convert_move_to_algebraic(mv))

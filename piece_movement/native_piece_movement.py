@@ -13,38 +13,24 @@ from .piece_movement_common import (
 def get_totem_moves(board, r, c):
     """
     TOTEM semplificato:
-      - Si MUOVE di 1 passo in qualsiasi direzione,
-      - PUÒ CATTURARE entro 3 caselle “in stile Regina” se non ci sono pezzi in mezzo.
+      - Si MUOVE di 1 passo in qualsiasi direzione
+      - (RIMOSSA la cattura a distanza 3)
     """
     p = board[r][c]
     moves = []
 
-    # (1) Spostamento come un Re (un solo passo)
-    for dr in [-1,0,1]:
-        for dc in [-1,0,1]:
+    # (1) Spostamento/cattura a una sola casella di distanza, stile Re
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
             if dr == 0 and dc == 0:
                 continue
-            rr, cc = r+dr, c+dc
+            rr, cc = r + dr, c + dc
             if in_bounds(rr, cc):
                 occ = board[rr][cc]
+                # se casella vuota o c'è un pezzo avversario => si può muovere/catturare
                 if occ == EMPTY or is_white_piece(p) != is_white_piece(occ):
                     moves.append((rr, cc))
 
-    # (2) Cattura “a distanza 3” (linee+diagonali), senza salto
-    directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1)]
-    for (dr, dc) in directions:
-        step_r, step_c = r, c
-        for _ in range(3):  # max 3 caselle
-            step_r += dr
-            step_c += dc
-            if not in_bounds(step_r, step_c):
-                break
-            occ = board[step_r][step_c]
-            if occ != EMPTY:
-                # Se è un pezzo avversario, possiamo catturarlo
-                if is_white_piece(p) != is_white_piece(occ):
-                    moves.append((step_r, step_c))
-                break
     return moves
 
 
