@@ -162,7 +162,6 @@ def _pseudo_totem_attacks(bstate, r, c):
     """
     TOTEM: per calcolo scacco,
       - Attacca le 8 caselle adiacenti (movimento Re),
-      - E può “sparare” fino a 3 caselle come una mini-Queen (senza salto).
     """
     p = bstate[r][c]
     out = []
@@ -175,17 +174,4 @@ def _pseudo_totem_attacks(bstate, r, c):
             rr, cc = r+dr, c+dc
             if in_bounds(rr, cc):
                 out.append((rr, cc))
-
-    # Raggio 3 in linee diagonali e ortogonali
-    directions = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1)]
-    for (dr, dc) in directions:
-        rr, cc = r, c
-        for _ in range(3):
-            rr += dr
-            cc += dc
-            if not in_bounds(rr, cc):
-                break
-            out.append((rr, cc))
-            if bstate[rr][cc] != EMPTY:
-                break
     return out
