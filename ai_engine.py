@@ -17,7 +17,7 @@ from evaluation import (
     PIECE_VALUE
 )
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 ###############################################################################
 # CONFIGURAZIONE PRINCIPALE

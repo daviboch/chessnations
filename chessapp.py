@@ -58,7 +58,7 @@ SCALE_FACTOR = 1.18
 ###############################################################################
 def convert_move_to_algebraic(raw_move: str) -> str:
     """
-    Converte una stringa di mossa nel formato "mover@(fr,fc)->(tr,tc)" 
+    Converte una stringa di mossa nel formato "mover@(fr,fc)->(tr,tc)"
     in un formato algebrico "PieceName from e2 to e4", sfruttando PIECE_NAME_MAP.
     """
     parts = raw_move.split('@')
@@ -94,7 +94,7 @@ def convert_move_to_algebraic(raw_move: str) -> str:
 
 def convert_move_to_algebraic_detailed(move: tuple, board_before: CustomBoard) -> str:
     """
-    Variante 'dettagliata': prende una tupla (fr, fc, tr, tc) e un CustomBoard 
+    Variante 'dettagliata': prende una tupla (fr, fc, tr, tc) e un CustomBoard
     per ricavare il nome del pezzo, e restituisce ad es. 'WHITE_KNIGHT from e2 to c3'.
     """
     (fr, fc, tr, tc) = move
@@ -115,13 +115,13 @@ def ask_option_dialog(parent, title, prompt, options):
     dialog = tk.Toplevel(parent)
     dialog.title(title)
 
-    dialog.transient(parent)            
-    dialog.grab_set()                  
+    dialog.transient(parent)
+    dialog.grab_set()
     dialog.attributes("-topmost", True)
-    dialog.lift()                      
+    dialog.lift()
 
     var_choice = tk.StringVar(dialog)
-    var_choice.set(options[0])  
+    var_choice.set(options[0])
 
     label = tk.Label(dialog, text=prompt, font=("Helvetica", 14))
     label.pack(padx=10, pady=10)
@@ -163,6 +163,16 @@ class ChessApp:
 
         self.evaluation_label = tk.Label(self.root, text="", font=("Helvetica",14), fg="black")
         self.evaluation_label.grid(row=10, column=0, sticky="w", padx=10)
+
+        # --------------------------------------------------------------------------------
+        # Nuove Label per mostrare i poteri ereditati dei TOTEM
+        # --------------------------------------------------------------------------------
+        self.white_totem_label = tk.Label(self.root, text="White TOTEM power: -", font=("Helvetica", 14))
+        self.white_totem_label.grid(row=11, column=0, sticky="w", padx=10)
+
+        self.black_totem_label = tk.Label(self.root, text="Black TOTEM power: -", font=("Helvetica", 14))
+        self.black_totem_label.grid(row=12, column=0, sticky="w", padx=10)
+        # --------------------------------------------------------------------------------
 
         self.moves_listbox = tk.Listbox(self.root, width=30, height=30)
         self.moves_listbox.grid(row=0, column=1, rowspan=8, padx=10)
@@ -435,7 +445,7 @@ class ChessApp:
         if self.game_board.is_game_over():
             return
 
-        mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=60)
+        mv = iterative_deepening_decision(self.game_board, max_depth=5, max_time=60)
         if mv is None:
             return
 
@@ -495,6 +505,26 @@ class ChessApp:
         eval_text = f"Evaluation (deterministic): {det_eval:.2f}"
         self.material_label.config(text=material_text)
         self.evaluation_label.config(text=eval_text)
+
+        # Richiamiamo l’aggiornamento delle label dei TOTEM
+        self.update_totem_info()
+
+    def update_totem_info(self):
+        """
+        Mostra nelle label il potere ereditato (se presente) per Totem bianco e nero.
+        """
+        wt = self.game_board.white_totem_inherited
+        bt = self.game_board.black_totem_inherited
+
+        if wt is None:
+            self.white_totem_label.config(text="White TOTEM power: -")
+        else:
+            self.white_totem_label.config(text=f"White TOTEM power: {wt}")
+
+        if bt is None:
+            self.black_totem_label.config(text="Black TOTEM power: -")
+        else:
+            self.black_totem_label.config(text=f"Black TOTEM power: {bt}")
 
     def update_status(self):
         if self.game_board.is_game_over():
