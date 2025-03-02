@@ -1,7 +1,6 @@
 # ai_engine.py
 
 import time
-import random
 
 from customboard import CustomBoard
 from piece_movement.piece_movement_common import (
@@ -10,9 +9,10 @@ from piece_movement.piece_movement_common import (
     WHITE_KING, BLACK_KING,
     is_white_piece, is_black_piece
 )
+# Import SOLO delle funzioni di valutazione che ci servono,
+# SENZA importare get_position_noise né altro
 from evaluation import (
     static_evaluation,
-    deterministic_evaluation,
     evaluation_breakdown,
     PIECE_VALUE
 )
@@ -24,25 +24,20 @@ DEBUG_MODE = True
 ###############################################################################
 
 USE_MOVE_ORDERING = True
-
-# ABILITA TRANSPOSITION TABLE E RELATIVI BOUND
 USE_TRANSPOSITION = True
 MAX_DEPTH_TT = 128
 
-# NULL MOVE
 USE_NULL_MOVE = True
 NULL_MOVE_REDUCTION = 1
 
-# QUIESCENCE
 USE_QUIESCENCE = True
 QUIESCENCE_MAX_DEPTH = 4
 
-# ASPIRATION WINDOW
 USE_ASPIRATION_WINDOW = True
 ASPIRATION_DELTA = 0.75
 
 ###############################################################################
-# TRANSPOSITION TABLE: salvataggio con bound EXACT/LOWER/UPPER
+# TRANSPOSITION TABLE
 ###############################################################################
 
 EXACT = 0
@@ -77,6 +72,11 @@ def print_debug_counters(prefix=""):
 ###############################################################################
 
 def board_position_hash(board_obj):
+    """
+    Calcola un hash di stringa per la transposition table, 
+    identico a evaluation.board_position_hash ma duplicato qui 
+    per evitare import circolari.
+    """
     rows = []
     for r in range(8):
         row_pieces = []
@@ -87,10 +87,6 @@ def board_position_hash(board_obj):
     return f"{'/'.join(rows)} {turn_char}"
 
 def mvv_lva_score(board_obj: CustomBoard, move):
-    """
-    Move ordering: più è alto lo score, più la mossa è considerata prioritaria
-    (catture di vittime di valore alto con pezzi di valore basso).
-    """
     (fr, fc, tr, tc) = move
     attacker = board_obj.board[fr][fc]
     victim = board_obj.board[tr][tc]
@@ -101,9 +97,6 @@ def mvv_lva_score(board_obj: CustomBoard, move):
     return 100 * val_victim - val_attacker
 
 def order_moves(board_obj: CustomBoard, moves: list, pv_move=None) -> list:
-    """
-    Se USE_MOVE_ORDERING=True, ordina le mosse per mvv_lva (e mette la pv_move davanti se presente).
-    """
     if not USE_MOVE_ORDERING:
         return moves
 
@@ -122,7 +115,7 @@ def order_moves(board_obj: CustomBoard, moves: list, pv_move=None) -> list:
         )
 
 ###############################################################################
-# QUIESCENCE (opzionale)
+# QUIESCENCE
 ###############################################################################
 
 def quiescence_search(board_obj: CustomBoard, alpha: float, beta: float, depth_q: int = 0) -> float:
@@ -188,11 +181,6 @@ def quiescence_search(board_obj: CustomBoard, alpha: float, beta: float, depth_q
 
 def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: float,
                        last_was_capture: bool=False, pv_move=None):
-    """
-    Ritorna (best_val, best_line).
-    Se USE_QUIESCENCE=True e last_was_capture=True, fa quiescence.
-    Se USE_TRANSPOSITION=True, usa TT con bound EXACT/LOWER/UPPER.
-    """
     global expansions_count, prunes_count, tt_hits_count
     expansions_count += 1
 
@@ -201,12 +189,12 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
 
     if depth <= 0 or board_obj.is_game_over():
         if last_was_capture and USE_QUIESCENCE:
-            q_val = quiescence_search(board_obj, alpha, beta, 0)
-            return (q_val, [])
+            val_q = quiescence_search(board_obj, alpha, beta, 0)
+            return (val_q, [])
         else:
-            return (static_evaluation(board_obj), [])
+            val = static_evaluation(board_obj)
+            return (val, [])
 
-    # TRANSPOSITION TABLE: retrieve
     pos_hash = None
     if USE_TRANSPOSITION:
         pos_hash = board_position_hash(board_obj)
@@ -214,7 +202,6 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
             (stored_depth, stored_score, stored_bound, stored_line) = TRANSPOSITION_TABLE[pos_hash]
             if stored_depth >= depth:
                 tt_hits_count += 1
-                # Applichiamo la logica di bound:
                 if stored_bound == EXACT:
                     return (stored_score, stored_line)
                 elif stored_bound == LOWER_BOUND:
@@ -224,20 +211,16 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
                     if stored_score < beta:
                         beta = stored_score
                 if alpha >= beta:
-                    # taglio
                     return (stored_score, stored_line)
 
-    # Generiamo tutte le mosse
     moves = board_obj.get_all_legal_moves(board_obj.turn_white)
     if not moves:
-        # No move => patta o matto => eval
+        # no moves => patta o matto
         if last_was_capture and USE_QUIESCENCE:
-            val = quiescence_search(board_obj, alpha, beta, 0)
-            # Salvataggio TT se abil.:
+            val_q = quiescence_search(board_obj, alpha, beta, 0)
             if USE_TRANSPOSITION and pos_hash is not None:
-                # si potrebbe determinare EXACT/LOWER/UPPER, ma in assenza di mosse è un EXACT
-                TRANSPOSITION_TABLE[pos_hash] = (depth, val, EXACT, [])
-            return (val, [])
+                TRANSPOSITION_TABLE[pos_hash] = (depth, val_q, EXACT, [])
+            return (val_q, [])
         else:
             val = static_evaluation(board_obj)
             if USE_TRANSPOSITION and pos_hash is not None:
@@ -246,12 +229,9 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
 
     is_maximizing = board_obj.turn_white
     best_line = []
-    if is_maximizing:
-        best_val = -float('inf')
-    else:
-        best_val = float('inf')
+    best_val = -float('inf') if is_maximizing else float('inf')
 
-    # NULL MOVE: ora vale per entrambi i colori se non in check
+    # NULL MOVE
     if USE_NULL_MOVE and depth >= 2 and not board_obj.is_in_check(board_obj.turn_white):
         def do_null_move(bobj: CustomBoard):
             bobj.turn_white = not bobj.turn_white
@@ -262,10 +242,8 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
         null_depth = depth - 1 - NULL_MOVE_REDUCTION
         if null_depth < 0:
             null_depth = 0
-        val_null, _ = minimax_alpha_beta(
-            board_obj, null_depth, alpha, beta,
-            last_was_capture=False, pv_move=None
-        )
+        val_null, _ = minimax_alpha_beta(board_obj, null_depth, alpha, beta,
+                                         last_was_capture=False, pv_move=None)
         undo_null_move(board_obj)
 
         if is_maximizing:
@@ -277,7 +255,6 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
                 prunes_count += 1
                 return (alpha, [])
 
-    # Move ordering
     ordered_moves = order_moves(board_obj, moves, pv_move)
 
     for mv in ordered_moves:
@@ -286,14 +263,12 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
         move_info = board_obj.make_move_in_place(fr, fc, tr, tc)
         if not move_info["move_done"]:
             continue
+
         new_last_was_capture = (captured_piece != EMPTY and captured_piece not in (WHITE_PAWN, BLACK_PAWN))
 
-        val, sub_line = minimax_alpha_beta(
-            board_obj, depth-1, alpha, beta,
-            last_was_capture=new_last_was_capture,
-            pv_move=None
-        )
-
+        val, sub_line = minimax_alpha_beta(board_obj, depth-1, alpha, beta,
+                                           last_was_capture=new_last_was_capture,
+                                           pv_move=None)
         board_obj.undo_move_in_place(move_info)
 
         if is_maximizing:
@@ -313,9 +288,7 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
                 prunes_count += 1
                 break
 
-    # TRANSPOSITION TABLE: store
     if USE_TRANSPOSITION and pos_hash is not None:
-        # Determiniamo il tipo di bound
         if best_val <= alpha_original:
             bound_type = UPPER_BOUND
         elif best_val >= beta_original:
@@ -331,9 +304,6 @@ def minimax_alpha_beta(board_obj: CustomBoard, depth: int, alpha: float, beta: f
 ###############################################################################
 
 def minimax_decision(board_obj: CustomBoard, depth: int, alpha=-float('inf'), beta=float('inf'), pv_move=None):
-    """
-    Chiamata per la singola iterazione.
-    """
     global expansions_count, prunes_count, tt_hits_count
 
     moves = board_obj.get_all_legal_moves(board_obj.turn_white)
@@ -352,14 +322,12 @@ def minimax_decision(board_obj: CustomBoard, depth: int, alpha=-float('inf'), be
         move_info = board_obj.make_move_in_place(fr, fc, tr, tc)
         if not move_info["move_done"]:
             continue
+
         new_last_was_capture = (captured_piece != EMPTY and captured_piece not in (WHITE_PAWN, BLACK_PAWN))
 
-        val, sub_line = minimax_alpha_beta(
-            board_obj, depth-1, alpha, beta,
-            last_was_capture=new_last_was_capture,
-            pv_move=None
-        )
-
+        val, sub_line = minimax_alpha_beta(board_obj, depth-1, alpha, beta,
+                                           last_was_capture=new_last_was_capture,
+                                           pv_move=None)
         board_obj.undo_move_in_place(move_info)
 
         if is_maximizing:
@@ -382,10 +350,6 @@ def minimax_decision(board_obj: CustomBoard, depth: int, alpha=-float('inf'), be
     return (best_val, best_line)
 
 def iterative_deepening_decision(board_obj: CustomBoard, max_depth=4, max_time=6):
-    """
-    Iterative deepening: parte da depth=1 a max_depth, con aspiration window.
-    Se fallisce la finestra, rifà la ricerca a finestra piena.
-    """
     global expansions_count, prunes_count, aspiration_fails_count, tt_hits_count
     reset_debug_counters()
 
@@ -393,7 +357,6 @@ def iterative_deepening_decision(board_obj: CustomBoard, max_depth=4, max_time=6
     best_line = []
     start_time = time.time()
     prev_val = 0.0
-
     prev_pv_move = None
 
     for d in range(1, max_depth+1):

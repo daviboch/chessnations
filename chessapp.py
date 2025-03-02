@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
 import os, random, time
+from evaluation import clear_noise_cache
+
 
 try:
     LANCZOS_FILTER = Image.Resampling.LANCZOS
@@ -433,7 +435,7 @@ class ChessApp:
         if self.game_board.is_game_over():
             return
 
-        mv = iterative_deepening_decision(self.game_board, max_depth=5, max_time=60)
+        mv = iterative_deepening_decision(self.game_board, max_depth=4, max_time=60)
         if mv is None:
             return
 
@@ -476,6 +478,8 @@ class ChessApp:
                 print("New evaluation after move of white:")
             print(evaluation_breakdown(self.game_board))
             print()
+
+            clear_noise_cache()
 
             if self.game_board.is_game_over():
                 messagebox.showinfo("Game Over", f"Winner: {self.game_board.winner}")
