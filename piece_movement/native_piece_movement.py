@@ -59,13 +59,8 @@ def get_bison_moves(board, r, c):
             if board[rr][cc] != EMPTY:
                 break
 
-    # (2) Richiamo dello Sciamano: se c'è uno Sciamano amico su una diagonale
-    #     e nessun pezzo in mezzo, muove come un Alfiere su quella diagonale.
-    #     Cerchiamo in ognuna delle 4 diagonali se esiste uno Sciamano amico.
-
+    # (2) Richiamo dello Sciamano
     my_is_white = is_white_piece(p)
-    # Cerchiamo TOTTI i possibili "shaman" in diagonale: se ne troviamo almeno uno, sblocchiamo la diagonale
-    # Metodo: per ogni diagonale, facciamo una scansione passo-passo:
     dirs_diag = [(1,1), (1,-1), (-1,1), (-1,-1)]
     for (dr, dc) in dirs_diag:
         rr, cc = r, c
@@ -78,26 +73,20 @@ def get_bison_moves(board, r, c):
                 break
             occupant = board[rr][cc]
             if occupant != EMPTY:
-                # Se troviamo un pezzo
                 if (my_is_white and occupant == WHITE_SHAMAN) or ((not my_is_white) and occupant == BLACK_SHAMAN):
-                    # Sciamano amico trovato => sblocco la diagonale
                     found_shaman_same_color = True
                 else:
-                    # Bloccato da un altro pezzo (o sciamano avversario)
                     path_clear = False
                 break
-        # Se found_shaman_same_color = True => quella diagonale è "sbloccata"
+
         if found_shaman_same_color and path_clear:
-            # Ora aggiungiamo le mosse stile Alfiere (finché non troviamo un pezzo)
-            rr2, cc2 = r, c
-            while True:
-                rr2 += dr
-                cc2 += dc
-                if not in_bounds(rr2, cc2):
-                    break
-                out.append((rr2, cc2))
-                if board[rr2][cc2] != EMPTY:
-                    break
+            # Vogliamo la casella appena prima dello Sciamano
+            prev_r = rr - dr
+            prev_c = cc - dc
+            if in_bounds(prev_r, prev_c):
+                # Niente catture: dev'essere vuota
+                if board[prev_r][prev_c] == EMPTY:
+                    out.append((prev_r, prev_c))
 
     return out
 
